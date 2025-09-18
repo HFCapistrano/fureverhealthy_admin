@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:furever_healthy_admin/theme/app_theme.dart';
 import 'package:furever_healthy_admin/widgets/sidebar.dart';
+import 'package:furever_healthy_admin/providers/analytics_provider.dart';
+import 'package:furever_healthy_admin/models/analytics_data.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -11,6 +14,15 @@ class AnalyticsScreen extends StatefulWidget {
 
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
   String _selectedPeriod = 'Last 30 Days';
+
+  @override
+  void initState() {
+    super.initState();
+    // Load analytics data from Firebase when screen initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AnalyticsProvider>().loadAnalyticsData();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,19 +62,40 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           ],
                         ),
                       ),
-                      DropdownButton<String>(
-                        value: _selectedPeriod,
-                        items: const [
-                          DropdownMenuItem(value: 'Last 7 Days', child: Text('Last 7 Days')),
-                          DropdownMenuItem(value: 'Last 30 Days', child: Text('Last 30 Days')),
-                          DropdownMenuItem(value: 'Last 90 Days', child: Text('Last 90 Days')),
-                          DropdownMenuItem(value: 'Last Year', child: Text('Last Year')),
+                      Row(
+                        children: [
+                          Consumer<AnalyticsProvider>(
+                            builder: (context, provider, child) {
+                              if (provider.isLoading) {
+                                return const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                );
+                              }
+                              return IconButton(
+                                icon: const Icon(Icons.refresh),
+                                onPressed: () => provider.refreshData(),
+                                tooltip: 'Refresh Data',
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 16),
+                          DropdownButton<String>(
+                            value: _selectedPeriod,
+                            items: const [
+                              DropdownMenuItem(value: 'Last 7 Days', child: Text('Last 7 Days')),
+                              DropdownMenuItem(value: 'Last 30 Days', child: Text('Last 30 Days')),
+                              DropdownMenuItem(value: 'Last 90 Days', child: Text('Last 90 Days')),
+                              DropdownMenuItem(value: 'Last Year', child: Text('Last Year')),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedPeriod = value!;
+                              });
+                            },
+                          ),
                         ],
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedPeriod = value!;
-                          });
-                        },
                       ),
                     ],
                   ),
@@ -70,177 +103,227 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 
                 // Content
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Key Metrics Row 1
-                        Row(
+                  child: Consumer<AnalyticsProvider>(
+                    builder: (context, provider, child) {
+                      if (provider.isLoading && provider.analyticsData == null) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      }
+
+                      if (provider.error != null) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                size: 64,
+                                color: Colors.red[300],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Error loading analytics data',
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                provider.error!,
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: AppTheme.textSecondary,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: () => provider.refreshData(),
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      final analyticsData = provider.analyticsData;
+                      if (analyticsData == null) {
+                        return const Center(
+                          child: Text('No analytics data available'),
+                        );
+                      }
+
+                      return SingleChildScrollView(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: _buildMetricCard(
-                                title: 'Total Users',
-                                value: '2,847',
-                                change: '+12.5%',
-                                isPositive: true,
-                                icon: Icons.people,
-                                color: Colors.blue,
-                              ),
+                            // Key Metrics Row 1
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    title: 'Total Users',
+                                    value: '${analyticsData.totalUsers}',
+                                    change: '+12.5%',
+                                    isPositive: true,
+                                    icon: Icons.people,
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    title: 'Premium Users',
+                                    value: '${analyticsData.premiumUsers}',
+                                    change: '+18.2%',
+                                    isPositive: true,
+                                    icon: Icons.star,
+                                    color: Colors.amber,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    title: 'Active Vets',
+                                    value: '${analyticsData.activeVets}',
+                                    change: '+8.2%',
+                                    isPositive: true,
+                                    icon: Icons.medical_services,
+                                    color: Colors.green,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    title: 'Premium Vets',
+                                    value: '${analyticsData.premiumVets}',
+                                    change: '+15.7%',
+                                    isPositive: true,
+                                    icon: Icons.verified,
+                                    color: Colors.purple,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildMetricCard(
-                                title: 'Premium Users',
-                                value: '1,234',
-                                change: '+18.2%',
-                                isPositive: true,
-                                icon: Icons.star,
-                                color: Colors.amber,
-                              ),
+                            
+                            const SizedBox(height: 16),
+                            
+                            // Key Metrics Row 2
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    title: 'Total Appointments',
+                                    value: '${analyticsData.totalAppointments}',
+                                    change: '+15.3%',
+                                    isPositive: true,
+                                    icon: Icons.calendar_today,
+                                    color: Colors.orange,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    title: 'Revenue',
+                                    value: '\$${analyticsData.revenue.toStringAsFixed(0)}',
+                                    change: '+22.1%',
+                                    isPositive: true,
+                                    icon: Icons.attach_money,
+                                    color: Colors.teal,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    title: 'Avg. Rating',
+                                    value: analyticsData.averageRating.toStringAsFixed(1),
+                                    change: '+0.2',
+                                    isPositive: true,
+                                    icon: Icons.star_rate,
+                                    color: Colors.indigo,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    title: 'Pet Breeds',
+                                    value: '${analyticsData.petBreeds}',
+                                    change: '+5.2%',
+                                    isPositive: true,
+                                    icon: Icons.pets,
+                                    color: Colors.pink,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildMetricCard(
-                                title: 'Active Vets',
-                                value: '156',
-                                change: '+8.2%',
-                                isPositive: true,
-                                icon: Icons.medical_services,
-                                color: Colors.green,
-                              ),
+                            
+                            const SizedBox(height: 24),
+                            
+                            // Charts Row
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: _buildChartCard(
+                                    title: 'User Growth Trend',
+                                    child: _buildUserGrowthChart(analyticsData.userGrowth),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildChartCard(
+                                    title: 'Pet Categories Distribution',
+                                    child: _buildPetCategoriesChart(analyticsData.petCategories),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildMetricCard(
-                                title: 'Premium Vets',
-                                value: '89',
-                                change: '+15.7%',
-                                isPositive: true,
-                                icon: Icons.verified,
-                                color: Colors.purple,
-                              ),
+                            
+                            const SizedBox(height: 24),
+                            
+                            // Bottom Row
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: _buildChartCard(
+                                    title: 'Appointment Trends',
+                                    child: _buildAppointmentTrendsChart(analyticsData.appointmentTrends),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildChartCard(
+                                    title: 'Top Breeds',
+                                    child: _buildTopBreedsList(analyticsData.topBreeds),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            
+                            const SizedBox(height: 24),
+                            
+                            // Additional Insights Row
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildChartCard(
+                                    title: 'Premium vs Regular Users',
+                                    child: _buildPremiumComparisonChart(analyticsData),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildChartCard(
+                                    title: 'Vet Verification Status',
+                                    child: _buildVetVerificationChart(analyticsData),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                        
-                        const SizedBox(height: 16),
-                        
-                        // Key Metrics Row 2
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildMetricCard(
-                                title: 'Total Appointments',
-                                value: '1,234',
-                                change: '+15.3%',
-                                isPositive: true,
-                                icon: Icons.calendar_today,
-                                color: Colors.orange,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildMetricCard(
-                                title: 'Revenue',
-                                value: '\$45,678',
-                                change: '+22.1%',
-                                isPositive: true,
-                                icon: Icons.attach_money,
-                                color: Colors.teal,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildMetricCard(
-                                title: 'Avg. Rating',
-                                value: '4.8',
-                                change: '+0.2',
-                                isPositive: true,
-                                icon: Icons.star_rate,
-                                color: Colors.indigo,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildMetricCard(
-                                title: 'Pet Breeds',
-                                value: '156',
-                                change: '+5.2%',
-                                isPositive: true,
-                                icon: Icons.pets,
-                                color: Colors.pink,
-                              ),
-                            ),
-                          ],
-                        ),
-                        
-                        const SizedBox(height: 24),
-                        
-                        // Charts Row
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: _buildChartCard(
-                                title: 'User Growth Trend',
-                                child: _buildUserGrowthChart(),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildChartCard(
-                                title: 'Pet Categories Distribution',
-                                child: _buildPetCategoriesChart(),
-                              ),
-                            ),
-                          ],
-                        ),
-                        
-                        const SizedBox(height: 24),
-                        
-                        // Bottom Row
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: _buildChartCard(
-                                title: 'Appointment Trends',
-                                child: _buildAppointmentTrendsChart(),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildChartCard(
-                                title: 'Top Breeds',
-                                child: _buildTopBreedsList(),
-                              ),
-                            ),
-                          ],
-                        ),
-                        
-                        const SizedBox(height: 24),
-                        
-                        // Additional Insights Row
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildChartCard(
-                                title: 'Premium vs Regular Users',
-                                child: _buildPremiumComparisonChart(),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildChartCard(
-                                title: 'Vet Verification Status',
-                                child: _buildVetVerificationChart(),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -340,7 +423,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  Widget _buildUserGrowthChart() {
+  Widget _buildUserGrowthChart(Map<String, int> userGrowth) {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: AppTheme.borderColor),
@@ -353,18 +436,33 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  Widget _buildPetCategoriesChart() {
+  Widget _buildPetCategoriesChart(Map<String, double> petCategories) {
     return Column(
-      children: [
-        _buildPieChartSegment('Dogs', 45, Colors.blue),
-        const SizedBox(height: 8),
-        _buildPieChartSegment('Cats', 35, Colors.orange),
-        const SizedBox(height: 8),
-        _buildPieChartSegment('Birds', 12, Colors.green),
-        const SizedBox(height: 8),
-        _buildPieChartSegment('Others', 8, Colors.purple),
-      ],
+      children: petCategories.entries.map((entry) {
+        final label = entry.key;
+        final percentage = entry.value;
+        return _buildPieChartSegment(label, percentage, _getColorForCategory(label));
+      }).toList(),
     );
+  }
+
+  Color _getColorForCategory(String category) {
+    switch (category) {
+      case 'Dogs':
+        return Colors.blue;
+      case 'Cats':
+        return Colors.orange;
+      case 'Birds':
+        return Colors.purple;
+      case 'Fish':
+        return Colors.teal;
+      case 'Reptiles':
+        return Colors.indigo;
+      case 'Other':
+        return Colors.pink;
+      default:
+        return Colors.grey;
+    }
   }
 
   Widget _buildPieChartSegment(String label, double percentage, Color color) {
@@ -396,7 +494,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  Widget _buildAppointmentTrendsChart() {
+  Widget _buildAppointmentTrendsChart(Map<String, int> appointmentTrends) {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: AppTheme.borderColor),
@@ -409,57 +507,59 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  Widget _buildTopBreedsList() {
-    final topBreeds = [
-      {'name': 'Golden Retriever', 'count': 156, 'percentage': 12.5},
-      {'name': 'Labrador Retriever', 'count': 142, 'percentage': 11.4},
-      {'name': 'Persian Cat', 'count': 98, 'percentage': 7.9},
-      {'name': 'Maine Coon', 'count': 87, 'percentage': 7.0},
-      {'name': 'German Shepherd', 'count': 76, 'percentage': 6.1},
-    ];
-
+  Widget _buildTopBreedsList(List<Map<String, dynamic>> topBreeds) {
     return Column(
-      children: topBreeds.map((breed) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                breed['name'] as String,
-                style: const TextStyle(fontSize: 14),
+      children: topBreeds.map((breed) {
+        final name = breed['name'] as String;
+        final count = breed['count'] as int;
+        final percentage = breed['percentage'] as double;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  name,
+                  style: const TextStyle(fontSize: 14),
+                ),
               ),
-            ),
-            Text(
-              '${breed['count']}',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
+              Text(
+                '$count',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '(${breed['percentage']}%)',
-              style: TextStyle(
-                color: AppTheme.textSecondary,
-                fontSize: 12,
+              const SizedBox(width: 8),
+              Text(
+                '(${percentage.toStringAsFixed(1)}%)',
+                style: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 12,
+                ),
               ),
-            ),
-          ],
-        ),
-      )).toList(),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 
-  Widget _buildPremiumComparisonChart() {
+  Widget _buildPremiumComparisonChart(AnalyticsData analyticsData) {
+    final totalUsers = analyticsData.totalUsers;
+    final premiumUsers = analyticsData.premiumUsers;
+    final totalVets = analyticsData.activeVets;
+    final premiumVets = analyticsData.premiumVets;
+
     return Column(
       children: [
-        _buildComparisonBar('Premium Users', 1234, 2847, Colors.amber),
+        _buildComparisonBar('Premium Users', premiumUsers, totalUsers, Colors.amber),
         const SizedBox(height: 12),
-        _buildComparisonBar('Regular Users', 1613, 2847, Colors.blue),
+        _buildComparisonBar('Regular Users', totalUsers - premiumUsers, totalUsers, Colors.blue),
         const SizedBox(height: 12),
-        _buildComparisonBar('Premium Vets', 89, 156, Colors.purple),
+        _buildComparisonBar('Premium Vets', premiumVets, totalVets, Colors.purple),
         const SizedBox(height: 12),
-        _buildComparisonBar('Regular Vets', 67, 156, Colors.green),
+        _buildComparisonBar('Regular Vets', totalVets - premiumVets, totalVets, Colors.green),
       ],
     );
   }
@@ -505,12 +605,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  Widget _buildVetVerificationChart() {
-    return Column(
-      children: [
-        _buildPieChartSegment('Verified Vets', 134, Colors.green),
-        const SizedBox(height: 8),
-        _buildPieChartSegment('Unverified Vets', 22, Colors.orange),
+  Widget _buildVetVerificationChart(AnalyticsData analyticsData) {
+    final totalVets = analyticsData.activeVets;
+    // For now, we'll assume 85% of vets are verified (this should come from Firebase data)
+    final verifiedVets = (totalVets * 0.85).round();
+    final unverifiedVets = totalVets - verifiedVets;
+
+          return Column(
+        children: [
+          _buildPieChartSegment('Verified Vets', verifiedVets.toDouble(), Colors.green),
+          const SizedBox(height: 8),
+          _buildPieChartSegment('Unverified Vets', unverifiedVets.toDouble(), Colors.orange),
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.all(12),
@@ -528,7 +633,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '85.9% Verified',
+                      '${(verifiedVets / totalVets * 100).toStringAsFixed(1)}% Verified',
                       style: TextStyle(
                         color: Colors.green,
                         fontWeight: FontWeight.bold,
@@ -536,7 +641,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       ),
                     ),
                     Text(
-                      '134 out of 156 vets',
+                      '$verifiedVets out of $totalVets vets',
                       style: TextStyle(
                         color: Colors.green.withOpacity(0.8),
                         fontSize: 12,
