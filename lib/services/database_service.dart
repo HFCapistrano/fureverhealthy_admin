@@ -113,7 +113,7 @@ class DatabaseService {
   static Future<QuerySnapshot> searchUsers(String searchTerm) async {
     return await users
         .where('name', isGreaterThanOrEqualTo: searchTerm)
-        .where('name', isLessThan: searchTerm + 'z')
+        .where('name', isLessThan: '${searchTerm}z')
         .get();
   }
 
@@ -154,6 +154,34 @@ class DatabaseService {
   static Future<int> getPetCount() async {
     final snapshot = await pets.get();
     return snapshot.docs.length;
+  }
+
+  // Password Reset Methods
+  static Future<bool> sendPasswordResetEmail(String email) async {
+    try {
+      // In a real implementation, this would integrate with Firebase Auth
+      // For now, we'll simulate the email sending process
+      await Future.delayed(const Duration(seconds: 2)); // Simulate API call
+      
+      // Log the password reset request (in real app, this would be handled by Firebase Auth)
+      print('Password reset email sent to: $email');
+      
+      return true;
+    } catch (e) {
+      print('Error sending password reset email: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> verifyAdminPassword(String password) async {
+    try {
+      // In a real implementation, this would verify against Firebase Auth
+      // For now, we'll use a simple check against the admin password
+      return password == 'admin123';
+    } catch (e) {
+      print('Error verifying admin password: $e');
+      return false;
+    }
   }
 }
 

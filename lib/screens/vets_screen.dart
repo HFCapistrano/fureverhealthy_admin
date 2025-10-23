@@ -17,6 +17,17 @@ class _VetsScreenState extends State<VetsScreen> {
   String _specializationFilter = 'all';
   String _verificationFilter = 'all';
   String _userTypeFilter = 'all';
+  
+  // Scroll controllers for proper scroll bar control
+  final ScrollController _verticalScrollController = ScrollController();
+  final ScrollController _horizontalScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _verticalScrollController.dispose();
+    _horizontalScrollController.dispose();
+    super.dispose();
+  }
 
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _applyFilters(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
     return docs.where((doc) {
@@ -41,6 +52,1398 @@ class _VetsScreenState extends State<VetsScreen> {
 
       return matchesSearch && matchesStatus && matchesSpecialization && matchesVerification && matchesUserType;
     }).toList();
+  }
+
+  void _editVet(BuildContext context, String vetId, Map<String, dynamic> vetData) {
+    final nameController = TextEditingController(text: vetData['name'] ?? '');
+    final emailController = TextEditingController(text: vetData['email'] ?? '');
+    final phoneController = TextEditingController(text: vetData['phone'] ?? '');
+    final clinicController = TextEditingController(text: vetData['clinic'] ?? '');
+    final specializationController = TextEditingController(text: vetData['specialization'] ?? '');
+    final experienceController = TextEditingController(text: vetData['experience'] ?? '');
+    final ratingController = TextEditingController(text: vetData['rating']?.toString() ?? '');
+    final patientsController = TextEditingController(text: vetData['patients']?.toString() ?? '');
+    
+    String status = vetData['status'] ?? 'active';
+    String userType = vetData['userType'] ?? 'regular';
+    bool verified = vetData['verified'] ?? false;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          constraints: const BoxConstraints(maxWidth: 800),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.edit, color: AppTheme.primaryColor),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Edit Veterinarian',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      // First Row - Name and Email
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: nameController,
+                              decoration: const InputDecoration(
+                                labelText: 'Name',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.person),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextField(
+                              controller: emailController,
+                              decoration: const InputDecoration(
+                                labelText: 'Email',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.email),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Second Row - Phone and Clinic
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: phoneController,
+                              decoration: const InputDecoration(
+                                labelText: 'Phone',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.phone),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextField(
+                              controller: clinicController,
+                              decoration: const InputDecoration(
+                                labelText: 'Clinic',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.business),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Third Row - Specialization and Experience
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: specializationController,
+                              decoration: const InputDecoration(
+                                labelText: 'Specialization',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.medical_services),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextField(
+                              controller: experienceController,
+                              decoration: const InputDecoration(
+                                labelText: 'Experience',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.work),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Fourth Row - Rating and Patients
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: ratingController,
+                              decoration: const InputDecoration(
+                                labelText: 'Rating',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.star),
+                              ),
+                              keyboardType: TextInputType.number,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextField(
+                              controller: patientsController,
+                              decoration: const InputDecoration(
+                                labelText: 'Patients',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.pets),
+                              ),
+                              keyboardType: TextInputType.number,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Fifth Row - Status, User Type, and Verification
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: status,
+                              decoration: const InputDecoration(
+                                labelText: 'Account Status',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.account_circle),
+                              ),
+                              items: const [
+                                DropdownMenuItem(value: 'active', child: Text('Active')),
+                                DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
+                              ],
+                              onChanged: (value) => status = value!,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: userType,
+                              decoration: const InputDecoration(
+                                labelText: 'User Type',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.category),
+                              ),
+                              items: const [
+                                DropdownMenuItem(value: 'regular', child: Text('Regular')),
+                                DropdownMenuItem(value: 'premium', child: Text('Premium')),
+                              ],
+                              onChanged: (value) => userType = value!,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Verification Checkbox
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppTheme.borderColor),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.verified_user, color: AppTheme.primaryColor),
+                            const SizedBox(width: 8),
+                            const Text('Verification Status'),
+                            const Spacer(),
+                            Checkbox(
+                              value: verified,
+                              onChanged: (value) => verified = value!,
+                            ),
+                            Text(verified ? 'Verified' : 'Unverified'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // Action Buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final scaffoldMessenger = ScaffoldMessenger.of(context);
+                      try {
+                        await DatabaseService.updateVet(vetId, {
+                          'name': nameController.text,
+                          'email': emailController.text,
+                          'phone': phoneController.text,
+                          'clinic': clinicController.text,
+                          'specialization': specializationController.text,
+                          'experience': experienceController.text,
+                          'rating': double.tryParse(ratingController.text) ?? 0.0,
+                          'patients': int.tryParse(patientsController.text) ?? 0,
+                          'status': status,
+                          'userType': userType,
+                          'verified': verified,
+                        });
+                        if (mounted) {
+                          Navigator.pop(context);
+                          scaffoldMessenger.showSnackBar(
+                            const SnackBar(content: Text('Veterinarian updated successfully')),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          scaffoldMessenger.showSnackBar(
+                            SnackBar(content: Text('Error updating veterinarian: $e')),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.save),
+                    label: const Text('Update'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _deleteVet(BuildContext context, String vetId, String vetName) {
+    final passwordController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Veterinarian'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Are you sure you want to delete $vetName?'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              decoration: const InputDecoration(
+                labelText: 'Enter password to confirm',
+                hintText: 'Type your password',
+              ),
+              obscureText: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              if (passwordController.text.isEmpty) {
+                scaffoldMessenger.showSnackBar(
+                  const SnackBar(content: Text('Please enter your password')),
+                );
+                return;
+              }
+              
+              try {
+                await DatabaseService.deleteVet(vetId);
+                if (mounted) {
+                  Navigator.pop(context);
+                  scaffoldMessenger.showSnackBar(
+                    const SnackBar(content: Text('Veterinarian deleted successfully')),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(content: Text('Error deleting veterinarian: $e')),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _sendPasswordResetEmail(BuildContext context, String email, String vetName) {
+    final passwordController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.lock_reset, color: Colors.orange),
+            const SizedBox(width: 8),
+            const Text('Send Password Reset Email'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Send password reset email to $vetName?'),
+            const SizedBox(height: 8),
+            Text(
+              'Email: $email',
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              decoration: const InputDecoration(
+                labelText: 'Enter your admin password to confirm',
+                hintText: 'Type your admin password',
+                prefixIcon: Icon(Icons.lock),
+              ),
+              obscureText: true,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'This action will send a password reset email to the veterinarian.',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              
+              if (passwordController.text.isEmpty) {
+                scaffoldMessenger.showSnackBar(
+                  const SnackBar(content: Text('Please enter your admin password')),
+                );
+                return;
+              }
+              
+              // Verify admin password
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              if (!isPasswordValid) {
+                scaffoldMessenger.showSnackBar(
+                  const SnackBar(content: Text('Invalid admin password')),
+                );
+                return;
+              }
+              
+              // Show loading indicator
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const AlertDialog(
+                  content: Row(
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(width: 16),
+                      Text('Sending password reset email...'),
+                    ],
+                  ),
+                ),
+              );
+              
+              try {
+                final success = await DatabaseService.sendPasswordResetEmail(email);
+                if (mounted) {
+                  Navigator.pop(context); // Close loading dialog
+                  Navigator.pop(context); // Close password dialog
+                  
+                  if (success) {
+                    scaffoldMessenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Password reset email sent to $vetName'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } else {
+                    scaffoldMessenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Failed to send password reset email'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              } catch (e) {
+                if (mounted) {
+                  Navigator.pop(context); // Close loading dialog
+                  Navigator.pop(context); // Close password dialog
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Error sending password reset email: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.send),
+            label: const Text('Send Reset Email'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _viewVetDetails(BuildContext context, String vetId, Map<String, dynamic> vetData) {
+    final nameController = TextEditingController(text: vetData['name'] ?? '');
+    final emailController = TextEditingController(text: vetData['email'] ?? '');
+    final phoneController = TextEditingController(text: vetData['phone'] ?? '');
+    final clinicController = TextEditingController(text: vetData['clinic'] ?? '');
+    final specializationController = TextEditingController(text: vetData['specialization'] ?? '');
+    final experienceController = TextEditingController(text: vetData['experience'] ?? '');
+    final ratingController = TextEditingController(text: vetData['rating']?.toString() ?? '');
+    final patientsController = TextEditingController(text: vetData['patients']?.toString() ?? '');
+    final licenseController = TextEditingController(text: vetData['license'] ?? '');
+    final educationController = TextEditingController(text: vetData['education'] ?? '');
+    final bioController = TextEditingController(text: vetData['bio'] ?? '');
+    
+    String status = vetData['status'] ?? 'active';
+    String userType = vetData['userType'] ?? 'regular';
+    bool verified = vetData['verified'] ?? false;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.9,
+          constraints: const BoxConstraints(maxWidth: 1000),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.person, color: AppTheme.primaryColor),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Complete Veterinarian Information',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      // Personal Information
+                      _buildFormSection('Personal Information', [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: nameController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Full Name',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.person),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextField(
+                                controller: emailController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Email',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.email),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: phoneController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Phone',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.phone),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextField(
+                                controller: licenseController,
+                                decoration: const InputDecoration(
+                                  labelText: 'License Number',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.badge),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ]),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Professional Information
+                      _buildFormSection('Professional Information', [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: specializationController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Specialization',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.medical_services),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextField(
+                                controller: experienceController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Years of Experience',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.work),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: clinicController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Clinic/Hospital',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.business),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextField(
+                                controller: educationController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Education',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.school),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: ratingController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Rating',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.star),
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextField(
+                                controller: patientsController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Number of Patients',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.pets),
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: bioController,
+                          decoration: const InputDecoration(
+                            labelText: 'Biography',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.description),
+                          ),
+                          maxLines: 3,
+                        ),
+                      ]),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Account Information
+                      _buildFormSection('Account Information', [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                value: status,
+                                decoration: const InputDecoration(
+                                  labelText: 'Account Status',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.account_circle),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(value: 'active', child: Text('Active')),
+                                  DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
+                                ],
+                                onChanged: (value) => status = value!,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                value: userType,
+                                decoration: const InputDecoration(
+                                  labelText: 'User Type',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.category),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(value: 'regular', child: Text('Regular')),
+                                  DropdownMenuItem(value: 'premium', child: Text('Premium')),
+                                ],
+                                onChanged: (value) => userType = value!,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppTheme.borderColor),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.verified_user, color: AppTheme.primaryColor),
+                              const SizedBox(width: 8),
+                              const Text('Verification Status'),
+                              const Spacer(),
+                              Checkbox(
+                                value: verified,
+                                onChanged: (value) => verified = value!,
+                              ),
+                              Text(verified ? 'Verified' : 'Unverified'),
+                            ],
+                          ),
+                        ),
+                      ]),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Patients Information
+                      _buildFormSection('Patients Information', [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Total Patients: ${vetData['patients'] ?? 0}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
+                            ),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                // Add new patient functionality
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Add patient functionality coming soon')),
+                                );
+                              },
+                              icon: const Icon(Icons.add, size: 16),
+                              label: const Text('Add Patient'),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        if (vetData['patientList'] != null && (vetData['patientList'] as List).isNotEmpty)
+                          ...(vetData['patientList'] as List).map((patient) => 
+                            _buildPatientCard(patient)
+                          ).toList()
+                        else
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceColor.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppTheme.borderColor),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.info_outline, color: AppTheme.textSecondary),
+                                SizedBox(width: 8),
+                                Text('No patients assigned yet'),
+                              ],
+                            ),
+                          ),
+                      ]),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // Action Buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Password Reset Button
+                  ElevatedButton.icon(
+                    onPressed: () => _sendPasswordResetEmail(context, emailController.text, vetData['name'] ?? ''),
+                    icon: const Icon(Icons.lock_reset),
+                    label: const Text('Send Password Reset'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                  
+                  // Save and Close Buttons
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Close'),
+                      ),
+                      const SizedBox(width: 16),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          final scaffoldMessenger = ScaffoldMessenger.of(context);
+                          try {
+                            await DatabaseService.updateVet(vetId, {
+                              'name': nameController.text,
+                              'email': emailController.text,
+                              'phone': phoneController.text,
+                              'clinic': clinicController.text,
+                              'specialization': specializationController.text,
+                              'experience': experienceController.text,
+                              'rating': double.tryParse(ratingController.text) ?? 0.0,
+                              'patients': int.tryParse(patientsController.text) ?? 0,
+                              'license': licenseController.text,
+                              'education': educationController.text,
+                              'bio': bioController.text,
+                              'status': status,
+                              'userType': userType,
+                              'verified': verified,
+                            });
+                            if (mounted) {
+                              Navigator.pop(context);
+                              scaffoldMessenger.showSnackBar(
+                                const SnackBar(content: Text('Veterinarian updated successfully')),
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              scaffoldMessenger.showSnackBar(
+                                SnackBar(content: Text('Error updating veterinarian: $e')),
+                              );
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.save),
+                        label: const Text('Save Changes'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormSection(String title, List<Widget> children) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.primaryColor,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceColor,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.borderColor),
+          ),
+          child: Column(
+            children: children,
+          ),
+        ),
+      ],
+    );
+  }
+
+
+  Widget _buildPatientCard(dynamic patient) {
+    // Handle different patient data structures
+    String patientName = 'Unknown Patient';
+    String petName = 'Unknown Pet';
+    String species = 'Unknown';
+    String breed = 'Unknown';
+    String age = 'Unknown';
+    String lastVisit = 'Never';
+    String status = 'Active';
+    
+    if (patient is Map<String, dynamic>) {
+      patientName = patient['ownerName'] ?? patient['name'] ?? 'Unknown Patient';
+      petName = patient['petName'] ?? patient['name'] ?? 'Unknown Pet';
+      species = patient['species'] ?? 'Unknown';
+      breed = patient['breed'] ?? 'Unknown';
+      age = patient['age']?.toString() ?? 'Unknown';
+      lastVisit = patient['lastVisit'] ?? 'Never';
+      status = patient['status'] ?? 'Active';
+    } else if (patient is String) {
+      patientName = patient;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                child: Icon(
+                  Icons.pets,
+                  color: AppTheme.primaryColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      patientName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      'Pet: $petName',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: status == 'Active' 
+                      ? AppTheme.successColor.withOpacity(0.1)
+                      : AppTheme.errorColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  status,
+                  style: TextStyle(
+                    color: status == 'Active' 
+                        ? AppTheme.successColor 
+                        : AppTheme.errorColor,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildPatientDetail('Species', species),
+              ),
+              Expanded(
+                child: _buildPatientDetail('Breed', breed),
+              ),
+              Expanded(
+                child: _buildPatientDetail('Age', age),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildPatientDetail('Last Visit', lastVisit),
+              ),
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        // View patient details
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('View patient details functionality coming soon')),
+                        );
+                      },
+                      icon: const Icon(Icons.visibility, size: 16),
+                      tooltip: 'View Details',
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        // Edit patient
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Edit patient functionality coming soon')),
+                        );
+                      },
+                      icon: const Icon(Icons.edit, size: 16),
+                      tooltip: 'Edit',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPatientDetail(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: AppTheme.textSecondary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _addVet(BuildContext context) {
+    final nameController = TextEditingController();
+    final emailController = TextEditingController();
+    final phoneController = TextEditingController();
+    final clinicController = TextEditingController();
+    final specializationController = TextEditingController();
+    final experienceController = TextEditingController();
+    final ratingController = TextEditingController();
+    final patientsController = TextEditingController();
+    final licenseController = TextEditingController();
+    final educationController = TextEditingController();
+    final bioController = TextEditingController();
+    
+    String status = 'active';
+    String userType = 'regular';
+    bool verified = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.9,
+          constraints: const BoxConstraints(maxWidth: 1000),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.person_add, color: AppTheme.primaryColor),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Add New Veterinarian',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      // Personal Information
+                      _buildFormSection('Personal Information', [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: nameController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Full Name *',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.person),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextField(
+                                controller: emailController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Email *',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.email),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: phoneController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Phone',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.phone),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextField(
+                                controller: licenseController,
+                                decoration: const InputDecoration(
+                                  labelText: 'License Number',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.badge),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ]),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Professional Information
+                      _buildFormSection('Professional Information', [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: specializationController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Specialization *',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.medical_services),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextField(
+                                controller: experienceController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Years of Experience',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.work),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: clinicController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Clinic/Hospital',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.business),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextField(
+                                controller: educationController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Education',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.school),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: ratingController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Rating',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.star),
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextField(
+                                controller: patientsController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Number of Patients',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.pets),
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: bioController,
+                          decoration: const InputDecoration(
+                            labelText: 'Biography',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.description),
+                          ),
+                          maxLines: 3,
+                        ),
+                      ]),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Account Information
+                      _buildFormSection('Account Information', [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                value: status,
+                                decoration: const InputDecoration(
+                                  labelText: 'Account Status',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.account_circle),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(value: 'active', child: Text('Active')),
+                                  DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
+                                ],
+                                onChanged: (value) => status = value!,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                value: userType,
+                                decoration: const InputDecoration(
+                                  labelText: 'User Type',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.category),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(value: 'regular', child: Text('Regular')),
+                                  DropdownMenuItem(value: 'premium', child: Text('Premium')),
+                                ],
+                                onChanged: (value) => userType = value!,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppTheme.borderColor),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.verified_user, color: AppTheme.primaryColor),
+                              const SizedBox(width: 8),
+                              const Text('Verification Status'),
+                              const Spacer(),
+                              Checkbox(
+                                value: verified,
+                                onChanged: (value) => verified = value!,
+                              ),
+                              Text(verified ? 'Verified' : 'Unverified'),
+                            ],
+                          ),
+                        ),
+                      ]),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // Action Buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      // Validate required fields
+                      if (nameController.text.isEmpty || emailController.text.isEmpty || specializationController.text.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please fill in all required fields (*)')),
+                        );
+                        return;
+                      }
+                      
+                      final scaffoldMessenger = ScaffoldMessenger.of(context);
+                      try {
+                        await DatabaseService.createVet({
+                          'name': nameController.text,
+                          'email': emailController.text,
+                          'phone': phoneController.text,
+                          'clinic': clinicController.text,
+                          'specialization': specializationController.text,
+                          'experience': experienceController.text,
+                          'rating': double.tryParse(ratingController.text) ?? 0.0,
+                          'patients': int.tryParse(patientsController.text) ?? 0,
+                          'license': licenseController.text,
+                          'education': educationController.text,
+                          'bio': bioController.text,
+                          'status': status,
+                          'userType': userType,
+                          'verified': verified,
+                          'isOnline': false,
+                          'createdAt': DateTime.now(),
+                        });
+                        if (mounted) {
+                          Navigator.pop(context);
+                          scaffoldMessenger.showSnackBar(
+                            const SnackBar(content: Text('Veterinarian added successfully')),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          scaffoldMessenger.showSnackBar(
+                            SnackBar(content: Text('Error adding veterinarian: $e')),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Veterinarian'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -82,9 +1485,7 @@ class _VetsScreenState extends State<VetsScreen> {
                         ),
                       ),
                       ElevatedButton.icon(
-                        onPressed: () {
-                          // Add new vet (optional)
-                        },
+                        onPressed: () => _addVet(context),
                         icon: const Icon(Icons.add),
                         label: const Text('Add Vet'),
                       ),
@@ -239,25 +1640,41 @@ class _VetsScreenState extends State<VetsScreen> {
                                 if (filtered.isEmpty) {
                                   return const Center(child: Text('No vets found'));
                                 }
-                                return SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(minWidth: 1400),
-                                    child: DataTable(
-                                      columnSpacing: 24,
-                                      columns: const [
-                                        DataColumn(label: Text('Veterinarian')),
-                                        DataColumn(label: Text('Contact')),
-                                        DataColumn(label: Text('Specialization')),
-                                        DataColumn(label: Text('Experience')),
-                                        DataColumn(label: Text('Clinic')),
-                                        DataColumn(label: Text('Status')),
-                                        DataColumn(label: Text('Verified')),
-                                        DataColumn(label: Text('User Type')),
-                                        DataColumn(label: Text('Rating')),
-                                        DataColumn(label: Text('Patients')),
-                                        DataColumn(label: Text('Actions')),
-                                      ],
+                                return Container(
+                                  height: 600, // Fixed height for proper scrolling
+                                  child: Scrollbar(
+                                    controller: _verticalScrollController,
+                                    thumbVisibility: true,
+                                    trackVisibility: true,
+                                    child: SingleChildScrollView(
+                                      controller: _verticalScrollController,
+                                      scrollDirection: Axis.vertical,
+                                      child: Scrollbar(
+                                        controller: _horizontalScrollController,
+                                        thumbVisibility: true,
+                                        trackVisibility: true,
+                                        child: SingleChildScrollView(
+                                          controller: _horizontalScrollController,
+                                          scrollDirection: Axis.horizontal,
+                                          child: ConstrainedBox(
+                                            constraints: const BoxConstraints(minWidth: 1400),
+                                            child: DataTable(
+                                              columnSpacing: 24,
+                                              columns: const [
+                                                DataColumn(label: Text('View')),
+                                                DataColumn(label: Text('Veterinarian')),
+                                                DataColumn(label: Text('Contact')),
+                                                DataColumn(label: Text('Specialization')),
+                                                DataColumn(label: Text('Experience')),
+                                                DataColumn(label: Text('Clinic')),
+                                                DataColumn(label: Text('Account Status')),
+                                                DataColumn(label: Text('Online Status')),
+                                                DataColumn(label: Text('Verified')),
+                                                DataColumn(label: Text('User Type')),
+                                                DataColumn(label: Text('Rating')),
+                                                DataColumn(label: Text('Patients')),
+                                                DataColumn(label: Text('Actions')),
+                                              ],
                                       rows: filtered.map((doc) {
                                         final data = doc.data();
                                         final name = (data['name'] ?? '').toString();
@@ -276,6 +1693,16 @@ class _VetsScreenState extends State<VetsScreen> {
                                         return DataRow(
                                           cells: [
                                             DataCell(
+                                              ElevatedButton(
+                                                onPressed: () => _viewVetDetails(context, doc.id, data),
+                                                style: ElevatedButton.styleFrom(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                  minimumSize: const Size(60, 32),
+                                                ),
+                                                child: const Text('View', style: TextStyle(fontSize: 12)),
+                                              ),
+                                            ),
+                                            DataCell(
                                               Row(
                                                 children: [
                                                   CircleAvatar(
@@ -283,7 +1710,7 @@ class _VetsScreenState extends State<VetsScreen> {
                                                     backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
                                                     child: Text(
                                                       name.isNotEmpty ? name[0] : '?',
-                                                      style: TextStyle(
+                                                      style: const TextStyle(
                                                         color: AppTheme.primaryColor,
                                                         fontWeight: FontWeight.w600,
                                                       ),
@@ -301,7 +1728,7 @@ class _VetsScreenState extends State<VetsScreen> {
                                                         ),
                                                         Text(
                                                           'ID: $id',
-                                                          style: TextStyle(
+                                                          style: const TextStyle(
                                                             fontSize: 12,
                                                             color: AppTheme.textSecondary,
                                                           ),
@@ -320,7 +1747,7 @@ class _VetsScreenState extends State<VetsScreen> {
                                                   Text(email),
                                                   Text(
                                                     phone,
-                                                    style: TextStyle(
+                                                    style: const TextStyle(
                                                       fontSize: 12,
                                                       color: AppTheme.textSecondary,
                                                     ),
@@ -341,11 +1768,47 @@ class _VetsScreenState extends State<VetsScreen> {
                                                   borderRadius: BorderRadius.circular(4),
                                                 ),
                                                 child: Text(
-                                                  status,
+                                                  status == 'active' ? 'Active' : 'Inactive',
                                                   style: TextStyle(
                                                     color: status == 'active' ? AppTheme.successColor : AppTheme.errorColor,
                                                     fontWeight: FontWeight.w600,
                                                   ),
+                                                ),
+                                              ),
+                                            ),
+                                            DataCell(
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: (data['isOnline'] ?? false) == true
+                                                      ? Colors.green.withOpacity(0.1)
+                                                      : Colors.grey.withOpacity(0.1),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Container(
+                                                      width: 8,
+                                                      height: 8,
+                                                      decoration: BoxDecoration(
+                                                        color: (data['isOnline'] ?? false) == true
+                                                            ? Colors.green
+                                                            : Colors.grey,
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      (data['isOnline'] ?? false) == true ? 'Online' : 'Offline',
+                                                      style: TextStyle(
+                                                        color: (data['isOnline'] ?? false) == true
+                                                            ? Colors.green
+                                                            : Colors.grey,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
                                             ),
@@ -405,27 +1868,14 @@ class _VetsScreenState extends State<VetsScreen> {
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
                                                   IconButton(
-                                                    onPressed: () {
-                                                      // View vet details
-                                                    },
-                                                    icon: const Icon(Icons.visibility, size: 16),
-                                                    tooltip: 'View',
-                                                    constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                                                    padding: EdgeInsets.zero,
-                                                  ),
-                                                  IconButton(
-                                                    onPressed: () {
-                                                      // Edit vet
-                                                    },
+                                                    onPressed: () => _editVet(context, doc.id, data),
                                                     icon: const Icon(Icons.edit, size: 16),
                                                     tooltip: 'Edit',
                                                     constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                                                     padding: EdgeInsets.zero,
                                                   ),
                                                   IconButton(
-                                                    onPressed: () {
-                                                      // Delete vet
-                                                    },
+                                                    onPressed: () => _deleteVet(context, doc.id, name),
                                                     icon: const Icon(Icons.delete, size: 16),
                                                     tooltip: 'Delete',
                                                     constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
@@ -436,7 +1886,11 @@ class _VetsScreenState extends State<VetsScreen> {
                                             ),
                                           ],
                                         );
-                                      }).toList(),
+                                              }).toList(),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 );

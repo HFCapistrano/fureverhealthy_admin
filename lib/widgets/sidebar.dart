@@ -129,7 +129,7 @@ class _SidebarState extends State<Sidebar> {
                     color: AppTheme.primaryColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.person,
                     color: AppTheme.primaryColor,
                     size: 20,

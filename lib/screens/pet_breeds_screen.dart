@@ -259,7 +259,7 @@ class _PetBreedsScreenState extends State<PetBreedsScreen> {
                                                         ),
                                                         Text(
                                                           'ID: $id',
-                                                          style: TextStyle(
+                                                          style: const TextStyle(
                                                             fontSize: 12,
                                                             color: AppTheme.textSecondary,
                                                           ),

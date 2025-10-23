@@ -533,7 +533,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               const SizedBox(width: 8),
               Text(
                 '(${percentage.toStringAsFixed(1)}%)',
-                style: TextStyle(
+                style: const TextStyle(
                   color: AppTheme.textSecondary,
                   fontSize: 12,
                 ),
@@ -626,7 +626,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           ),
           child: Row(
             children: [
-              Icon(Icons.verified, color: Colors.green, size: 20),
+              const Icon(Icons.verified, color: Colors.green, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -634,7 +634,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   children: [
                     Text(
                       '${(verifiedVets / totalVets * 100).toStringAsFixed(1)}% Verified',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Colors.green,
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
