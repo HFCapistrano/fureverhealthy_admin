@@ -413,10 +413,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              height: 200,
-              child: child,
-            ),
+            child,
           ],
         ),
       ),
@@ -424,14 +421,78 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Widget _buildUserGrowthChart(Map<String, int> userGrowth) {
+    // Calculate trend from userGrowth data
+    final entries = userGrowth.entries.toList();
+    bool? isPositive;
+    double changePercent = 0.0;
+    String changeText = 'No data';
+    bool hasData = false;
+    
+    if (entries.length >= 2) {
+      // Compare most recent to previous period
+      final recent = entries.last.value;
+      final previous = entries[entries.length - 2].value;
+      if (previous > 0) {
+        changePercent = ((recent - previous) / previous * 100);
+        isPositive = changePercent >= 0;
+        changeText = '${isPositive ? '+' : ''}${changePercent.toStringAsFixed(1)}%';
+        hasData = true;
+      }
+    }
+    
     return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         border: Border.all(color: AppTheme.borderColor),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: CustomPaint(
-        size: const Size(double.infinity, 200),
-        painter: LineChartPainter(),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (hasData) ...[
+                Icon(
+                  isPositive! ? Icons.arrow_upward : Icons.arrow_downward,
+                  color: isPositive ? Colors.green : Colors.red,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+              ],
+              Text(
+                changeText,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: hasData 
+                    ? (isPositive! ? Colors.green : Colors.red)
+                    : AppTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          if (hasData) ...[
+            const SizedBox(height: 8),
+            Text(
+              isPositive! ? 'User growth increased' : 'User growth decreased',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
+          if (entries.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Current: ${entries.last.value} users',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -495,14 +556,78 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Widget _buildAppointmentTrendsChart(Map<String, int> appointmentTrends) {
+    // Calculate trend from appointmentTrends data
+    final entries = appointmentTrends.entries.toList();
+    bool? isPositive;
+    double changePercent = 0.0;
+    String changeText = 'No data';
+    bool hasData = false;
+    
+    if (entries.length >= 2) {
+      // Compare most recent to previous period
+      final recent = entries.last.value;
+      final previous = entries[entries.length - 2].value;
+      if (previous > 0) {
+        changePercent = ((recent - previous) / previous * 100);
+        isPositive = changePercent >= 0;
+        changeText = '${isPositive ? '+' : ''}${changePercent.toStringAsFixed(1)}%';
+        hasData = true;
+      }
+    }
+    
     return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         border: Border.all(color: AppTheme.borderColor),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: CustomPaint(
-        size: const Size(double.infinity, 200),
-        painter: BarChartPainter(),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (hasData) ...[
+                Icon(
+                  isPositive! ? Icons.arrow_upward : Icons.arrow_downward,
+                  color: isPositive ? Colors.green : Colors.red,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+              ],
+              Text(
+                changeText,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: hasData 
+                    ? (isPositive! ? Colors.green : Colors.red)
+                    : AppTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          if (hasData) ...[
+            const SizedBox(height: 8),
+            Text(
+              isPositive! ? 'Appointments increased' : 'Appointments decreased',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
+          if (entries.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Current: ${entries.last.value} appointments',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -657,92 +782,3 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 }
-
-class LineChartPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppTheme.primaryColor
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke;
-
-    final path = Path();
-    final points = [
-      Offset(0, size.height * 0.8),
-      Offset(size.width * 0.2, size.height * 0.6),
-      Offset(size.width * 0.4, size.height * 0.7),
-      Offset(size.width * 0.6, size.height * 0.4),
-      Offset(size.width * 0.8, size.height * 0.3),
-      Offset(size.width, size.height * 0.2),
-    ];
-
-    path.moveTo(points[0].dx, points[0].dy);
-    for (int i = 1; i < points.length; i++) {
-      path.lineTo(points[i].dx, points[i].dy);
-    }
-
-    canvas.drawPath(path, paint);
-
-    // Draw points
-    final pointPaint = Paint()
-      ..color = AppTheme.primaryColor
-      ..style = PaintingStyle.fill;
-
-    for (final point in points) {
-      canvas.drawCircle(point, 5, pointPaint);
-    }
-
-    // Draw grid lines
-    final gridPaint = Paint()
-      ..color = AppTheme.borderColor
-      ..strokeWidth = 1;
-
-    for (int i = 1; i < 5; i++) {
-      final y = size.height * (i / 5);
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class BarChartPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppTheme.primaryColor
-      ..style = PaintingStyle.fill;
-
-    final barWidth = size.width / 7;
-    final maxHeight = size.height * 0.8;
-    final heights = [0.6, 0.8, 0.5, 0.9, 0.7, 0.4, 0.6];
-
-    for (int i = 0; i < heights.length; i++) {
-      final barHeight = maxHeight * heights[i];
-      final rect = Rect.fromLTWH(
-        i * barWidth + barWidth * 0.1,
-        size.height - barHeight,
-        barWidth * 0.8,
-        barHeight,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, const Radius.circular(4)),
-        paint,
-      );
-    }
-
-    // Draw grid lines
-    final gridPaint = Paint()
-      ..color = AppTheme.borderColor
-      ..strokeWidth = 1;
-
-    for (int i = 1; i < 5; i++) {
-      final y = size.height * (i / 5);
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-} 

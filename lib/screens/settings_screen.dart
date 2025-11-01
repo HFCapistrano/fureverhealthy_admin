@@ -210,7 +210,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                             if (_sessionTimeout)
                               _buildSliderSetting(
-                                'Session Timeout (${_sessionTimeoutMinutes} minutes)',
+                                'Session Timeout ($_sessionTimeoutMinutes minutes)',
                                 'Minutes of inactivity before auto-logout',
                                 _sessionTimeoutMinutes.toDouble(),
                                 5.0,
@@ -224,7 +224,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               (value) => setState(() => _requireStrongPasswords = value),
                             ),
                             _buildSliderSetting(
-                              'Max Login Attempts (${_maxLoginAttempts})',
+                              'Max Login Attempts ($_maxLoginAttempts)',
                               'Maximum failed login attempts before account lockout',
                               _maxLoginAttempts.toDouble(),
                               3.0,
@@ -249,7 +249,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                             if (_dataRetentionEnabled)
                               _buildSliderSetting(
-                                'Data Retention (${_dataRetentionDays} days)',
+                                'Data Retention ($_dataRetentionDays days)',
                                 'How long to keep user data before cleanup',
                                 _dataRetentionDays.toDouble(),
                                 30.0,

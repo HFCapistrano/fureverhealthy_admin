@@ -9,6 +9,11 @@ import 'package:furever_healthy_admin/screens/vets_screen.dart';
 import 'package:furever_healthy_admin/screens/analytics_screen.dart';
 import 'package:furever_healthy_admin/screens/pet_breeds_screen.dart';
 import 'package:furever_healthy_admin/screens/settings_screen.dart';
+import 'package:furever_healthy_admin/screens/feedbacks_screen.dart';
+import 'package:furever_healthy_admin/screens/ratings_screen.dart';
+import 'package:furever_healthy_admin/screens/community_screen.dart';
+import 'package:furever_healthy_admin/screens/user_detail_screen.dart';
+import 'package:furever_healthy_admin/screens/vet_detail_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -67,6 +72,37 @@ class AppRouter {
         path: '/settings',
         name: 'settings',
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/feedbacks',
+        name: 'feedbacks',
+        builder: (context, state) => const FeedbacksScreen(),
+      ),
+      GoRoute(
+        path: '/ratings',
+        name: 'ratings',
+        builder: (context, state) => const RatingsScreen(),
+      ),
+      GoRoute(
+        path: '/community',
+        name: 'community',
+        builder: (context, state) => const CommunityScreen(),
+      ),
+      GoRoute(
+        path: '/users/:userId',
+        name: 'user-detail',
+        builder: (context, state) {
+          final userId = state.pathParameters['userId']!;
+          return UserDetailScreen(userId: userId);
+        },
+      ),
+      GoRoute(
+        path: '/vets/:vetId',
+        name: 'vet-detail',
+        builder: (context, state) {
+          final vetId = state.pathParameters['vetId']!;
+          return VetDetailScreen(vetId: vetId);
+        },
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

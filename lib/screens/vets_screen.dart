@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:furever_healthy_admin/theme/app_theme.dart';
 import 'package:furever_healthy_admin/widgets/sidebar.dart';
 import 'package:furever_healthy_admin/services/database_service.dart';
@@ -63,6 +64,9 @@ class _VetsScreenState extends State<VetsScreen> {
     final experienceController = TextEditingController(text: vetData['experience'] ?? '');
     final ratingController = TextEditingController(text: vetData['rating']?.toString() ?? '');
     final patientsController = TextEditingController(text: vetData['patients']?.toString() ?? '');
+    final licenseController = TextEditingController(text: vetData['license'] ?? '');
+    final educationController = TextEditingController(text: vetData['education'] ?? '');
+    final bioController = TextEditingController(text: vetData['bio'] ?? '');
     
     String status = vetData['status'] ?? 'active';
     String userType = vetData['userType'] ?? 'regular';
@@ -81,7 +85,7 @@ class _VetsScreenState extends State<VetsScreen> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.edit, color: AppTheme.primaryColor),
+                  const Icon(Icons.edit, color: AppTheme.primaryColor),
                   const SizedBox(width: 8),
                   Text(
                     'Edit Veterinarian',
@@ -215,25 +219,112 @@ class _VetsScreenState extends State<VetsScreen> {
                       ),
                       const SizedBox(height: 16),
                       
-                      // Fifth Row - Status, User Type, and Verification
+                      // Additional Fields Row - License, Education
                       Row(
                         children: [
                           Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: status,
+                            child: TextField(
+                              controller: licenseController,
                               decoration: const InputDecoration(
-                                labelText: 'Account Status',
+                                labelText: 'License Number',
                                 border: OutlineInputBorder(),
-                                prefixIcon: Icon(Icons.account_circle),
+                                prefixIcon: Icon(Icons.badge),
                               ),
-                              items: const [
-                                DropdownMenuItem(value: 'active', child: Text('Active')),
-                                DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
-                              ],
-                              onChanged: (value) => status = value!,
                             ),
                           ),
                           const SizedBox(width: 16),
+                          Expanded(
+                            child: TextField(
+                              controller: educationController,
+                              decoration: const InputDecoration(
+                                labelText: 'Education',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.school),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Bio Field
+                      TextField(
+                        controller: bioController,
+                        decoration: const InputDecoration(
+                          labelText: 'Biography',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.description),
+                        ),
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Fifth Row - Account Status (Read-only), Online Status, User Type
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: AppTheme.borderColor),
+                                borderRadius: BorderRadius.circular(8),
+                                color: AppTheme.surfaceColor,
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.account_circle, color: AppTheme.textSecondary),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'Account Status: ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                  Text(
+                                    status == 'active' ? 'Active' : status == 'inactive' ? 'Inactive' : 'Dormant',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: status == 'active'
+                                          ? AppTheme.successColor
+                                          : status == 'inactive'
+                                              ? AppTheme.errorColor
+                                              : Colors.orange,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: AppTheme.borderColor),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.circle, 
+                                    color: (vetData['isOnline'] ?? false) ? Colors.green : Colors.grey, 
+                                    size: 16
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text('Online Status'),
+                                  const Spacer(),
+                                  Text((vetData['isOnline'] ?? false) ? 'Online' : 'Offline'),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // User Type Row
+                      Row(
+                        children: [
                           Expanded(
                             child: DropdownButtonFormField<String>(
                               value: userType,
@@ -262,7 +353,7 @@ class _VetsScreenState extends State<VetsScreen> {
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.verified_user, color: AppTheme.primaryColor),
+                            const Icon(Icons.verified_user, color: AppTheme.primaryColor),
                             const SizedBox(width: 8),
                             const Text('Verification Status'),
                             const Spacer(),
@@ -302,7 +393,10 @@ class _VetsScreenState extends State<VetsScreen> {
                           'experience': experienceController.text,
                           'rating': double.tryParse(ratingController.text) ?? 0.0,
                           'patients': int.tryParse(patientsController.text) ?? 0,
-                          'status': status,
+                          'license': licenseController.text,
+                          'education': educationController.text,
+                          'bio': bioController.text,
+                          // Account status and online status are read-only and not updated here
                           'userType': userType,
                           'verified': verified,
                         });
@@ -402,11 +496,11 @@ class _VetsScreenState extends State<VetsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Row(
+        title: const Row(
           children: [
             Icon(Icons.lock_reset, color: Colors.orange),
-            const SizedBox(width: 8),
-            const Text('Send Password Reset Email'),
+            SizedBox(width: 8),
+            Text('Send Password Reset Email'),
           ],
         ),
         content: Column(
@@ -529,396 +623,10 @@ class _VetsScreenState extends State<VetsScreen> {
   }
 
   void _viewVetDetails(BuildContext context, String vetId, Map<String, dynamic> vetData) {
-    final nameController = TextEditingController(text: vetData['name'] ?? '');
-    final emailController = TextEditingController(text: vetData['email'] ?? '');
-    final phoneController = TextEditingController(text: vetData['phone'] ?? '');
-    final clinicController = TextEditingController(text: vetData['clinic'] ?? '');
-    final specializationController = TextEditingController(text: vetData['specialization'] ?? '');
-    final experienceController = TextEditingController(text: vetData['experience'] ?? '');
-    final ratingController = TextEditingController(text: vetData['rating']?.toString() ?? '');
-    final patientsController = TextEditingController(text: vetData['patients']?.toString() ?? '');
-    final licenseController = TextEditingController(text: vetData['license'] ?? '');
-    final educationController = TextEditingController(text: vetData['education'] ?? '');
-    final bioController = TextEditingController(text: vetData['bio'] ?? '');
-    
-    String status = vetData['status'] ?? 'active';
-    String userType = vetData['userType'] ?? 'regular';
-    bool verified = vetData['verified'] ?? false;
-
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.9,
-          constraints: const BoxConstraints(maxWidth: 1000),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.person, color: AppTheme.primaryColor),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Complete Veterinarian Information',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      // Personal Information
-                      _buildFormSection('Personal Information', [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: nameController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Full Name',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.person),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: TextField(
-                                controller: emailController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Email',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.email),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: phoneController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Phone',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.phone),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: TextField(
-                                controller: licenseController,
-                                decoration: const InputDecoration(
-                                  labelText: 'License Number',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.badge),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ]),
-                      
-                      const SizedBox(height: 24),
-                      
-                      // Professional Information
-                      _buildFormSection('Professional Information', [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: specializationController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Specialization',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.medical_services),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: TextField(
-                                controller: experienceController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Years of Experience',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.work),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: clinicController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Clinic/Hospital',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.business),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: TextField(
-                                controller: educationController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Education',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.school),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: ratingController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Rating',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.star),
-                                ),
-                                keyboardType: TextInputType.number,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: TextField(
-                                controller: patientsController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Number of Patients',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.pets),
-                                ),
-                                keyboardType: TextInputType.number,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: bioController,
-                          decoration: const InputDecoration(
-                            labelText: 'Biography',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.description),
-                          ),
-                          maxLines: 3,
-                        ),
-                      ]),
-                      
-                      const SizedBox(height: 24),
-                      
-                      // Account Information
-                      _buildFormSection('Account Information', [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: DropdownButtonFormField<String>(
-                                value: status,
-                                decoration: const InputDecoration(
-                                  labelText: 'Account Status',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.account_circle),
-                                ),
-                                items: const [
-                                  DropdownMenuItem(value: 'active', child: Text('Active')),
-                                  DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
-                                ],
-                                onChanged: (value) => status = value!,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: DropdownButtonFormField<String>(
-                                value: userType,
-                                decoration: const InputDecoration(
-                                  labelText: 'User Type',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.category),
-                                ),
-                                items: const [
-                                  DropdownMenuItem(value: 'regular', child: Text('Regular')),
-                                  DropdownMenuItem(value: 'premium', child: Text('Premium')),
-                                ],
-                                onChanged: (value) => userType = value!,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: AppTheme.borderColor),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.verified_user, color: AppTheme.primaryColor),
-                              const SizedBox(width: 8),
-                              const Text('Verification Status'),
-                              const Spacer(),
-                              Checkbox(
-                                value: verified,
-                                onChanged: (value) => verified = value!,
-                              ),
-                              Text(verified ? 'Verified' : 'Unverified'),
-                            ],
-                          ),
-                        ),
-                      ]),
-                      
-                      const SizedBox(height: 24),
-                      
-                      // Patients Information
-                      _buildFormSection('Patients Information', [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Total Patients: ${vetData['patients'] ?? 0}',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                // Add new patient functionality
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Add patient functionality coming soon')),
-                                );
-                              },
-                              icon: const Icon(Icons.add, size: 16),
-                              label: const Text('Add Patient'),
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        if (vetData['patientList'] != null && (vetData['patientList'] as List).isNotEmpty)
-                          ...(vetData['patientList'] as List).map((patient) => 
-                            _buildPatientCard(patient)
-                          ).toList()
-                        else
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppTheme.surfaceColor.withOpacity(0.5),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppTheme.borderColor),
-                            ),
-                            child: const Row(
-                              children: [
-                                Icon(Icons.info_outline, color: AppTheme.textSecondary),
-                                SizedBox(width: 8),
-                                Text('No patients assigned yet'),
-                              ],
-                            ),
-                          ),
-                      ]),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              
-              // Action Buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Password Reset Button
-                  ElevatedButton.icon(
-                    onPressed: () => _sendPasswordResetEmail(context, emailController.text, vetData['name'] ?? ''),
-                    icon: const Icon(Icons.lock_reset),
-                    label: const Text('Send Password Reset'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                  
-                  // Save and Close Buttons
-                  Row(
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Close'),
-                      ),
-                      const SizedBox(width: 16),
-                      ElevatedButton.icon(
-                        onPressed: () async {
-                          final scaffoldMessenger = ScaffoldMessenger.of(context);
-                          try {
-                            await DatabaseService.updateVet(vetId, {
-                              'name': nameController.text,
-                              'email': emailController.text,
-                              'phone': phoneController.text,
-                              'clinic': clinicController.text,
-                              'specialization': specializationController.text,
-                              'experience': experienceController.text,
-                              'rating': double.tryParse(ratingController.text) ?? 0.0,
-                              'patients': int.tryParse(patientsController.text) ?? 0,
-                              'license': licenseController.text,
-                              'education': educationController.text,
-                              'bio': bioController.text,
-                              'status': status,
-                              'userType': userType,
-                              'verified': verified,
-                            });
-                            if (mounted) {
-                              Navigator.pop(context);
-                              scaffoldMessenger.showSnackBar(
-                                const SnackBar(content: Text('Veterinarian updated successfully')),
-                              );
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              scaffoldMessenger.showSnackBar(
-                                SnackBar(content: Text('Error updating veterinarian: $e')),
-                              );
-                            }
-                          }
-                        },
-                        icon: const Icon(Icons.save),
-                        label: const Text('Save Changes'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    context.go('/vets/$vetId');
   }
+
+  // Old view vet details method removed - now navigates to detail screen
 
   Widget _buildFormSection(String title, List<Widget> children) {
     return Column(
@@ -987,7 +695,7 @@ class _VetsScreenState extends State<VetsScreen> {
               CircleAvatar(
                 radius: 20,
                 backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                child: Icon(
+                child: const Icon(
                   Icons.pets,
                   color: AppTheme.primaryColor,
                   size: 20,
@@ -1144,7 +852,7 @@ class _VetsScreenState extends State<VetsScreen> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.person_add, color: AppTheme.primaryColor),
+                  const Icon(Icons.person_add, color: AppTheme.primaryColor),
                   const SizedBox(width: 8),
                   Text(
                     'Add New Veterinarian',
@@ -1329,8 +1037,9 @@ class _VetsScreenState extends State<VetsScreen> {
                                   prefixIcon: Icon(Icons.account_circle),
                                 ),
                                 items: const [
-                                  DropdownMenuItem(value: 'active', child: Text('Active')),
-                                  DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
+                                DropdownMenuItem(value: 'active', child: Text('Active')),
+                                DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
+                                DropdownMenuItem(value: 'dormant', child: Text('Dormant')),
                                 ],
                                 onChanged: (value) => status = value!,
                               ),
@@ -1362,7 +1071,7 @@ class _VetsScreenState extends State<VetsScreen> {
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.verified_user, color: AppTheme.primaryColor),
+                              const Icon(Icons.verified_user, color: AppTheme.primaryColor),
                               const SizedBox(width: 8),
                               const Text('Verification Status'),
                               const Spacer(),
@@ -1504,116 +1213,125 @@ class _VetsScreenState extends State<VetsScreen> {
                         Card(
                           child: Padding(
                             padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                // Search
-                                Expanded(
-                                  flex: 2,
-                                  child: TextField(
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _searchQuery = value;
-                                      });
-                                    },
-                                    decoration: const InputDecoration(
-                                      hintText: 'Search vets, clinics...',
-                                      prefixIcon: Icon(Icons.search),
-                                      border: InputBorder.none,
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Search
+                                  SizedBox(
+                                    width: 250,
+                                    child: TextField(
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _searchQuery = value;
+                                        });
+                                      },
+                                      decoration: const InputDecoration(
+                                        hintText: 'Search vets, clinics...',
+                                        prefixIcon: Icon(Icons.search),
+                                        border: InputBorder.none,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 16),
-                                
-                                // Status Filter
-                                Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    value: _statusFilter,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Status',
-                                      border: InputBorder.none,
+                                  const SizedBox(width: 16),
+                                  
+                                  // Status Filter
+                                  SizedBox(
+                                    width: 150,
+                                    child: DropdownButtonFormField<String>(
+                                      value: _statusFilter,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Status',
+                                        border: InputBorder.none,
+                                      ),
+                                      items: const [
+                                        DropdownMenuItem(value: 'all', child: Text('All')),
+                                        DropdownMenuItem(value: 'active', child: Text('Active')),
+                                        DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
+                                        DropdownMenuItem(value: 'dormant', child: Text('Dormant')),
+                                      ],
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _statusFilter = value!;
+                                        });
+                                      },
                                     ),
-                                    items: const [
-                                      DropdownMenuItem(value: 'all', child: Text('All')),
-                                      DropdownMenuItem(value: 'active', child: Text('Active')),
-                                      DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
-                                    ],
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _statusFilter = value!;
-                                      });
-                                    },
                                   ),
-                                ),
-                                const SizedBox(width: 16),
-                                
-                                // Specialization Filter
-                                Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    value: _specializationFilter,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Specialization',
-                                      border: InputBorder.none,
+                                  const SizedBox(width: 16),
+                                  
+                                  // Specialization Filter
+                                  SizedBox(
+                                    width: 180,
+                                    child: DropdownButtonFormField<String>(
+                                      value: _specializationFilter,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Specialization',
+                                        border: InputBorder.none,
+                                      ),
+                                      items: const [
+                                        DropdownMenuItem(value: 'all', child: Text('All')),
+                                        DropdownMenuItem(value: 'General Practice', child: Text('General Practice')),
+                                        DropdownMenuItem(value: 'Surgery', child: Text('Surgery')),
+                                        DropdownMenuItem(value: 'Dermatology', child: Text('Dermatology')),
+                                        DropdownMenuItem(value: 'Emergency Care', child: Text('Emergency Care')),
+                                        DropdownMenuItem(value: 'Cardiology', child: Text('Cardiology')),
+                                      ],
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _specializationFilter = value!;
+                                        });
+                                      },
                                     ),
-                                    items: const [
-                                      DropdownMenuItem(value: 'all', child: Text('All')),
-                                      DropdownMenuItem(value: 'General Practice', child: Text('General Practice')),
-                                      DropdownMenuItem(value: 'Surgery', child: Text('Surgery')),
-                                      DropdownMenuItem(value: 'Dermatology', child: Text('Dermatology')),
-                                      DropdownMenuItem(value: 'Emergency Care', child: Text('Emergency Care')),
-                                      DropdownMenuItem(value: 'Cardiology', child: Text('Cardiology')),
-                                    ],
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _specializationFilter = value!;
-                                      });
-                                    },
                                   ),
-                                ),
-                                const SizedBox(width: 16),
-                                
-                                // Verification Filter
-                                Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    value: _verificationFilter,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Verification',
-                                      border: InputBorder.none,
+                                  const SizedBox(width: 16),
+                                  
+                                  // Verification Filter
+                                  SizedBox(
+                                    width: 160,
+                                    child: DropdownButtonFormField<String>(
+                                      value: _verificationFilter,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Verification',
+                                        border: InputBorder.none,
+                                      ),
+                                      items: const [
+                                        DropdownMenuItem(value: 'all', child: Text('All')),
+                                        DropdownMenuItem(value: 'verified', child: Text('Verified')),
+                                        DropdownMenuItem(value: 'unverified', child: Text('Unverified')),
+                                      ],
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _verificationFilter = value!;
+                                        });
+                                      },
                                     ),
-                                    items: const [
-                                      DropdownMenuItem(value: 'all', child: Text('All')),
-                                      DropdownMenuItem(value: 'verified', child: Text('Verified')),
-                                      DropdownMenuItem(value: 'unverified', child: Text('Unverified')),
-                                    ],
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _verificationFilter = value!;
-                                      });
-                                    },
                                   ),
-                                ),
-                                const SizedBox(width: 16),
-                                
-                                // User Type Filter
-                                Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    value: _userTypeFilter,
-                                    decoration: const InputDecoration(
-                                      labelText: 'User Type',
-                                      border: InputBorder.none,
+                                  const SizedBox(width: 16),
+                                  
+                                  // User Type Filter
+                                  SizedBox(
+                                    width: 150,
+                                    child: DropdownButtonFormField<String>(
+                                      value: _userTypeFilter,
+                                      decoration: const InputDecoration(
+                                        labelText: 'User Type',
+                                        border: InputBorder.none,
+                                      ),
+                                      items: const [
+                                        DropdownMenuItem(value: 'all', child: Text('All')),
+                                        DropdownMenuItem(value: 'premium', child: Text('Premium')),
+                                        DropdownMenuItem(value: 'regular', child: Text('Regular')),
+                                      ],
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _userTypeFilter = value!;
+                                        });
+                                      },
                                     ),
-                                    items: const [
-                                      DropdownMenuItem(value: 'all', child: Text('All')),
-                                      DropdownMenuItem(value: 'premium', child: Text('Premium')),
-                                      DropdownMenuItem(value: 'regular', child: Text('Regular')),
-                                    ],
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _userTypeFilter = value!;
-                                      });
-                                    },
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -1640,7 +1358,7 @@ class _VetsScreenState extends State<VetsScreen> {
                                 if (filtered.isEmpty) {
                                   return const Center(child: Text('No vets found'));
                                 }
-                                return Container(
+                                return SizedBox(
                                   height: 600, // Fixed height for proper scrolling
                                   child: Scrollbar(
                                     controller: _verticalScrollController,
@@ -1764,13 +1482,19 @@ class _VetsScreenState extends State<VetsScreen> {
                                                 decoration: BoxDecoration(
                                                   color: status == 'active'
                                                       ? AppTheme.successColor.withOpacity(0.1)
-                                                      : AppTheme.errorColor.withOpacity(0.1),
+                                                      : status == 'inactive'
+                                                          ? AppTheme.errorColor.withOpacity(0.1)
+                                                          : Colors.orange.withOpacity(0.1),
                                                   borderRadius: BorderRadius.circular(4),
                                                 ),
                                                 child: Text(
-                                                  status == 'active' ? 'Active' : 'Inactive',
+                                                  status == 'active' ? 'Active' : status == 'inactive' ? 'Inactive' : 'Dormant',
                                                   style: TextStyle(
-                                                    color: status == 'active' ? AppTheme.successColor : AppTheme.errorColor,
+                                                    color: status == 'active'
+                                                        ? AppTheme.successColor
+                                                        : status == 'inactive'
+                                                            ? AppTheme.errorColor
+                                                            : Colors.orange,
                                                     fontWeight: FontWeight.w600,
                                                   ),
                                                 ),

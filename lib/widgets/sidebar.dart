@@ -103,6 +103,27 @@ class _SidebarState extends State<Sidebar> {
                 ),
                 _buildMenuItem(
                   context,
+                  icon: Icons.feedback,
+                  title: 'Feedbacks',
+                  route: '/feedbacks',
+                  isActive: currentLocation == '/feedbacks',
+                ),
+                _buildMenuItem(
+                  context,
+                  icon: Icons.star,
+                  title: 'Ratings',
+                  route: '/ratings',
+                  isActive: currentLocation == '/ratings',
+                ),
+                _buildMenuItem(
+                  context,
+                  icon: Icons.groups,
+                  title: 'Community',
+                  route: '/community',
+                  isActive: currentLocation == '/community',
+                ),
+                _buildMenuItem(
+                  context,
                   icon: Icons.settings,
                   title: 'Settings',
                   route: '/settings',

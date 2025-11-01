@@ -21,6 +21,18 @@ class DatabaseService {
   
   // Analytics Collection
   static CollectionReference get analytics => _firestore.collection('analytics');
+  
+  // Feedbacks Collection
+  static CollectionReference get feedbacks => _firestore.collection('feedbacks');
+  
+  // Ratings Collection
+  static CollectionReference get ratings => _firestore.collection('ratings');
+  
+  // Community Collection
+  static CollectionReference get community => _firestore.collection('community');
+  
+  // Pet Infos Collection
+  static CollectionReference get petInfos => _firestore.collection('petInfos');
 
   // User Management
   static Future<DocumentSnapshot> getUser(String userId) async {
@@ -182,6 +194,48 @@ class DatabaseService {
       print('Error verifying admin password: $e');
       return false;
     }
+  }
+
+  // Feedback Management
+  static Future<void> deleteFeedback(String feedbackId) async {
+    await feedbacks.doc(feedbackId).delete();
+  }
+
+  static Stream<QuerySnapshot> getFeedbacksStream() {
+    return feedbacks.orderBy('createdAt', descending: true).snapshots();
+  }
+
+  // Rating Management
+  static Future<void> deleteRating(String ratingId) async {
+    await ratings.doc(ratingId).delete();
+  }
+
+  static Stream<QuerySnapshot> getRatingsStream() {
+    return ratings.orderBy('createdAt', descending: true).snapshots();
+  }
+
+  // Community Management
+  static Future<void> deleteCommunityPost(String postId) async {
+    await community.doc(postId).delete();
+  }
+
+  static Stream<QuerySnapshot> getCommunityPostsStream() {
+    return community.orderBy('createdAt', descending: true).snapshots();
+  }
+
+  // Pet Info Management
+  static Stream<QuerySnapshot> getPetsByUserId(String userId) {
+    return petInfos.where('ownerID', isEqualTo: userId).snapshots();
+  }
+
+  static Stream<QuerySnapshot> getPetsByVetId(String vetId) {
+    // Check if pets are linked to vets via ownerID or a separate vetId field
+    // For now, assuming vets also use ownerID or checking both fields
+    return petInfos.where('vetId', isEqualTo: vetId).snapshots();
+  }
+
+  static Future<DocumentSnapshot> getPetInfo(String petId) async {
+    return await petInfos.doc(petId).get();
   }
 }
 

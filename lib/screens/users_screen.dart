@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:furever_healthy_admin/theme/app_theme.dart';
 import 'package:furever_healthy_admin/widgets/sidebar.dart';
 import 'package:furever_healthy_admin/services/database_service.dart';
@@ -14,6 +15,17 @@ class UsersScreen extends StatefulWidget {
 class _UsersScreenState extends State<UsersScreen> {
   String _searchQuery = '';
   String _statusFilter = 'all';
+  
+  // Scroll controllers for proper scroll bar control
+  final ScrollController _verticalScrollController = ScrollController();
+  final ScrollController _horizontalScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _verticalScrollController.dispose();
+    _horizontalScrollController.dispose();
+    super.dispose();
+  }
 
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _applyFilters(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
     return docs.where((doc) {
@@ -29,296 +41,10 @@ class _UsersScreenState extends State<UsersScreen> {
   }
 
   void _viewUserDetails(BuildContext context, String userId, Map<String, dynamic> userData) {
-    final nameController = TextEditingController(text: userData['name'] ?? '');
-    final emailController = TextEditingController(text: userData['email'] ?? '');
-    final phoneController = TextEditingController(text: userData['phone'] ?? '');
-    final addressController = TextEditingController(text: userData['address'] ?? '');
-    final joinDateController = TextEditingController(text: userData['joinDate']?.toString() ?? '');
-    final lastActiveController = TextEditingController(text: userData['lastActive']?.toString() ?? '');
-    
-    String status = userData['status'] ?? 'active';
-    bool isOnline = userData['isOnline'] ?? false;
-
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.9,
-          constraints: const BoxConstraints(maxWidth: 1000),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.person, color: AppTheme.primaryColor),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Complete User Information',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      // Personal Information
-                      _buildFormSection('Personal Information', [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: nameController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Full Name',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.person),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: TextField(
-                                controller: emailController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Email',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.email),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: phoneController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Phone',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.phone),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: TextField(
-                                controller: addressController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Address',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.location_on),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ]),
-                      
-                      const SizedBox(height: 24),
-                      
-                      // Account Information
-                      _buildFormSection('Account Information', [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: DropdownButtonFormField<String>(
-                                value: status,
-                                decoration: const InputDecoration(
-                                  labelText: 'Account Status',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.account_circle),
-                                ),
-                                items: const [
-                                  DropdownMenuItem(value: 'active', child: Text('Active')),
-                                  DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
-                                ],
-                                onChanged: (value) => status = value!,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: AppTheme.borderColor),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.circle, color: isOnline ? Colors.green : Colors.grey, size: 16),
-                                    const SizedBox(width: 8),
-                                    Text('Online Status'),
-                                    const Spacer(),
-                                    Text(isOnline ? 'Online' : 'Offline'),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: joinDateController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Join Date',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.calendar_today),
-                                ),
-                                readOnly: true,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: TextField(
-                                controller: lastActiveController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Last Active',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.access_time),
-                                ),
-                                readOnly: true,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ]),
-                      
-                      const SizedBox(height: 24),
-                      
-                      // Pets Information
-                      _buildFormSection('Pets Information', [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Total Pets: ${userData['pets'] ?? 0}',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                // Add new pet functionality
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Add pet functionality coming soon')),
-                                );
-                              },
-                              icon: const Icon(Icons.add, size: 16),
-                              label: const Text('Add Pet'),
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        if (userData['petList'] != null && (userData['petList'] as List).isNotEmpty)
-                          ...(userData['petList'] as List).map((pet) => 
-                            _buildPetCard(pet)
-                          ).toList()
-                        else
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppTheme.surfaceColor.withOpacity(0.5),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppTheme.borderColor),
-                            ),
-                            child: const Row(
-                              children: [
-                                Icon(Icons.info_outline, color: AppTheme.textSecondary),
-                                SizedBox(width: 8),
-                                Text('No pets registered yet'),
-                              ],
-                            ),
-                          ),
-                      ]),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              
-              // Action Buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Password Reset Button
-                  ElevatedButton.icon(
-                    onPressed: () => _sendPasswordResetEmail(context, emailController.text, userData['name'] ?? ''),
-                    icon: const Icon(Icons.lock_reset),
-                    label: const Text('Send Password Reset'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                  
-                  // Save and Close Buttons
-                  Row(
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Close'),
-                      ),
-                      const SizedBox(width: 16),
-                      ElevatedButton.icon(
-                        onPressed: () async {
-                          final scaffoldMessenger = ScaffoldMessenger.of(context);
-                          try {
-                            await DatabaseService.updateUser(userId, {
-                              'name': nameController.text,
-                              'email': emailController.text,
-                              'phone': phoneController.text,
-                              'address': addressController.text,
-                              'status': status,
-                            });
-                            if (mounted) {
-                              Navigator.pop(context);
-                              scaffoldMessenger.showSnackBar(
-                                const SnackBar(content: Text('User updated successfully')),
-                              );
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              scaffoldMessenger.showSnackBar(
-                                SnackBar(content: Text('Error updating user: $e')),
-                              );
-                            }
-                          }
-                        },
-                        icon: const Icon(Icons.save),
-                        label: const Text('Save Changes'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    context.go('/users/$userId');
   }
+
+  // Old view user details method removed - now navigates to detail screen
 
   Widget _buildFormSection(String title, List<Widget> children) {
     return Column(
@@ -381,7 +107,7 @@ class _UsersScreenState extends State<UsersScreen> {
               CircleAvatar(
                 radius: 20,
                 backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                child: Icon(
+                child: const Icon(
                   Icons.pets,
                   color: AppTheme.primaryColor,
                   size: 20,
@@ -479,11 +205,11 @@ class _UsersScreenState extends State<UsersScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Row(
+        title: const Row(
           children: [
             Icon(Icons.lock_reset, color: Colors.orange),
-            const SizedBox(width: 8),
-            const Text('Send Password Reset Email'),
+            SizedBox(width: 8),
+            Text('Send Password Reset Email'),
           ],
         ),
         content: Column(
@@ -626,7 +352,7 @@ class _UsersScreenState extends State<UsersScreen> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.edit, color: AppTheme.primaryColor),
+                  const Icon(Icons.edit, color: AppTheme.primaryColor),
                   const SizedBox(width: 8),
                   Text(
                     'Edit User',
@@ -680,18 +406,59 @@ class _UsersScreenState extends State<UsersScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: status,
-                    decoration: const InputDecoration(
-                      labelText: 'Account Status',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.account_circle),
+                  // Account Status (Read-only)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppTheme.borderColor),
+                      borderRadius: BorderRadius.circular(8),
+                      color: AppTheme.surfaceColor,
                     ),
-                    items: const [
-                      DropdownMenuItem(value: 'active', child: Text('Active')),
-                      DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
-                    ],
-                    onChanged: (value) => status = value!,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.account_circle, color: AppTheme.textSecondary),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Account Status: ',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          status == 'active' ? 'Active' : status == 'inactive' ? 'Inactive' : 'Dormant',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: status == 'active'
+                                ? AppTheme.successColor
+                                : status == 'inactive'
+                                    ? AppTheme.errorColor
+                                    : Colors.orange,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Online Status (Read-only)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppTheme.borderColor),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.circle, 
+                          color: (userData['isOnline'] ?? false) ? Colors.green : Colors.grey, 
+                          size: 16
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('Online Status'),
+                        const Spacer(),
+                        Text((userData['isOnline'] ?? false) ? 'Online' : 'Offline'),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -713,7 +480,7 @@ class _UsersScreenState extends State<UsersScreen> {
                           'email': emailController.text,
                           'phone': phoneController.text,
                           'address': addressController.text,
-                          'status': status,
+                          // Account status and online status are read-only and not updated here
                         });
                         if (mounted) {
                           Navigator.pop(context);
@@ -826,7 +593,7 @@ class _UsersScreenState extends State<UsersScreen> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.person_add, color: AppTheme.primaryColor),
+                  const Icon(Icons.person_add, color: AppTheme.primaryColor),
                   const SizedBox(width: 8),
                   Text(
                     'Add New User',
@@ -888,8 +655,9 @@ class _UsersScreenState extends State<UsersScreen> {
                       prefixIcon: Icon(Icons.account_circle),
                     ),
                     items: const [
-                      DropdownMenuItem(value: 'active', child: Text('Active')),
-                      DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
+                                  DropdownMenuItem(value: 'active', child: Text('Active')),
+                                  DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
+                                  DropdownMenuItem(value: 'dormant', child: Text('Dormant')),
                     ],
                     onChanged: (value) => status = value!,
                   ),
@@ -1014,47 +782,53 @@ class _UsersScreenState extends State<UsersScreen> {
                         Card(
                           child: Padding(
                             padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                // Search
-                                Expanded(
-                                  flex: 2,
-                                  child: TextField(
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _searchQuery = value;
-                                      });
-                                    },
-                                    decoration: const InputDecoration(
-                                      hintText: 'Search users...',
-                                      prefixIcon: Icon(Icons.search),
-                                      border: InputBorder.none,
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Search
+                                  SizedBox(
+                                    width: 250,
+                                    child: TextField(
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _searchQuery = value;
+                                        });
+                                      },
+                                      decoration: const InputDecoration(
+                                        hintText: 'Search users...',
+                                        prefixIcon: Icon(Icons.search),
+                                        border: InputBorder.none,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 16),
-                                
-                                // Status Filter
-                                Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    value: _statusFilter,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Status',
-                                      border: InputBorder.none,
+                                  const SizedBox(width: 16),
+                                  
+                                  // Status Filter
+                                  SizedBox(
+                                    width: 150,
+                                    child: DropdownButtonFormField<String>(
+                                      value: _statusFilter,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Status',
+                                        border: InputBorder.none,
+                                      ),
+                                      items: const [
+                                        DropdownMenuItem(value: 'all', child: Text('All')),
+                                        DropdownMenuItem(value: 'active', child: Text('Active')),
+                                        DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
+                                        DropdownMenuItem(value: 'dormant', child: Text('Dormant')),
+                                      ],
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _statusFilter = value!;
+                                        });
+                                      },
                                     ),
-                                    items: const [
-                                      DropdownMenuItem(value: 'all', child: Text('All')),
-                                      DropdownMenuItem(value: 'active', child: Text('Active')),
-                                      DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
-                                    ],
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _statusFilter = value!;
-                                      });
-                                    },
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -1081,127 +855,216 @@ class _UsersScreenState extends State<UsersScreen> {
                                 if (filtered.isEmpty) {
                                   return const Center(child: Text('No users found'));
                                 }
-                                return SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(minWidth: 1200),
-                                    child: DataTable(
-                                      columnSpacing: 24,
-                                      columns: const [
-                                        DataColumn(label: Text('View')),
-                                        DataColumn(label: Text('Name')),
-                                        DataColumn(label: Text('Email')),
-                                        DataColumn(label: Text('Phone')),
-                                        DataColumn(label: Text('Pets')),
-                                        DataColumn(label: Text('Join Date')),
-                                        DataColumn(label: Text('Status')),
-                                        DataColumn(label: Text('Last Active')),
-                                        DataColumn(label: Text('Actions')),
-                                      ],
-                                      rows: filtered.map((doc) {
-                                        final data = doc.data();
-                                        final name = (data['name'] ?? '').toString();
-                                        final email = (data['email'] ?? '').toString();
-                                        final phone = (data['phone'] ?? '').toString();
-                                        final pets = (data['pets'] ?? 0).toString();
-                                        final joinDate = data['joinDate'] is Timestamp
-                                            ? (data['joinDate'] as Timestamp).toDate().toIso8601String().split('T').first
-                                            : (data['joinDate'] ?? '').toString();
-                                        final status = (data['status'] ?? '').toString();
-                                        final lastActive = data['lastActive'] is Timestamp
-                                            ? (data['lastActive'] as Timestamp).toDate().toIso8601String().split('T').first
-                                            : (data['lastActive'] ?? '').toString();
-                                        return DataRow(
-                                          cells: [
-                                            DataCell(
-                                              ElevatedButton(
-                                                onPressed: () => _viewUserDetails(context, doc.id, data),
-                                                style: ElevatedButton.styleFrom(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                                  minimumSize: const Size(60, 32),
-                                                ),
-                                                child: const Text('View', style: TextStyle(fontSize: 12)),
-                                              ),
-                                            ),
-                                            DataCell(
-                                              Row(
-                                                children: [
-                                                  CircleAvatar(
-                                                    radius: 16,
-                                                    backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                                                    child: Text(
-                                                      name.isNotEmpty ? name[0] : '?',
-                                                      style: TextStyle(
-                                                        color: AppTheme.primaryColor,
-                                                        fontWeight: FontWeight.w600,
+                                return SizedBox(
+                                  height: 600, // Fixed height for proper scrolling
+                                  child: Scrollbar(
+                                    controller: _verticalScrollController,
+                                    thumbVisibility: true,
+                                    trackVisibility: true,
+                                    child: SingleChildScrollView(
+                                      controller: _verticalScrollController,
+                                      scrollDirection: Axis.vertical,
+                                      child: Scrollbar(
+                                        controller: _horizontalScrollController,
+                                        thumbVisibility: true,
+                                        trackVisibility: true,
+                                        child: SingleChildScrollView(
+                                          controller: _horizontalScrollController,
+                                          scrollDirection: Axis.horizontal,
+                                          child: ConstrainedBox(
+                                            constraints: const BoxConstraints(minWidth: 1400),
+                                            child: DataTable(
+                                              columnSpacing: 24,
+                                              columns: const [
+                                                DataColumn(label: Text('View')),
+                                                DataColumn(label: Text('Name')),
+                                                DataColumn(label: Text('Email')),
+                                                DataColumn(label: Text('Phone')),
+                                                DataColumn(label: Text('Pets')),
+                                                DataColumn(label: Text('Join Date')),
+                                                DataColumn(label: Text('Account Status')),
+                                                DataColumn(label: Text('Online Status')),
+                                                DataColumn(label: Text('Premium')),
+                                                DataColumn(label: Text('Last Active')),
+                                                DataColumn(label: Text('Actions')),
+                                              ],
+                                              rows: filtered.map((doc) {
+                                                final data = doc.data();
+                                                final name = (data['name'] ?? '').toString();
+                                                final email = (data['email'] ?? '').toString();
+                                                final phone = (data['phone'] ?? '').toString();
+                                                final pets = (data['pets'] ?? 0).toString();
+                                                final joinDate = data['joinDate'] is Timestamp
+                                                    ? (data['joinDate'] as Timestamp).toDate().toIso8601String().split('T').first
+                                                    : (data['joinDate'] ?? '').toString();
+                                                final status = (data['status'] ?? '').toString();
+                                                final isOnline = data['isOnline'] ?? false;
+                                                final isPremium = data['isPremium'] ?? data['userType'] == 'premium';
+                                                final lastActive = data['lastActive'] is Timestamp
+                                                    ? (data['lastActive'] as Timestamp).toDate().toIso8601String().split('T').first
+                                                    : (data['lastActive'] ?? '').toString();
+                                                return DataRow(
+                                                  cells: [
+                                                    DataCell(
+                                                      ElevatedButton(
+                                                        onPressed: () => _viewUserDetails(context, doc.id, data),
+                                                        style: ElevatedButton.styleFrom(
+                                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                          minimumSize: const Size(60, 32),
+                                                        ),
+                                                        child: const Text('View', style: TextStyle(fontSize: 12)),
                                                       ),
                                                     ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                    child: Text(
-                                                      name,
-                                                      style: const TextStyle(fontWeight: FontWeight.w500),
+                                                    DataCell(
+                                                      Row(
+                                                        children: [
+                                                          CircleAvatar(
+                                                            radius: 16,
+                                                            backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                                                            child: Text(
+                                                              name.isNotEmpty ? name[0] : '?',
+                                                              style: const TextStyle(
+                                                                color: AppTheme.primaryColor,
+                                                                fontWeight: FontWeight.w600,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 8),
+                                                          Expanded(
+                                                            child: Text(
+                                                              name,
+                                                              style: const TextStyle(fontWeight: FontWeight.w500),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
                                                     ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            DataCell(Text(email)),
-                                            DataCell(Text(phone)),
-                                            DataCell(Text(pets)),
-                                            DataCell(Text(joinDate)),
-                                            DataCell(
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color: status == 'active'
-                                                      ? AppTheme.successColor.withOpacity(0.1)
-                                                      : AppTheme.errorColor.withOpacity(0.1),
-                                                  borderRadius: BorderRadius.circular(4),
-                                                ),
-                                                child: Text(
-                                                  status,
-                                                  style: TextStyle(
-                                                    color: status == 'active'
-                                                        ? AppTheme.successColor
-                                                        : AppTheme.errorColor,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            DataCell(Text(lastActive)),
-                                            DataCell(
-                                              Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  IconButton(
-                                                    onPressed: () => _editUser(context, doc.id, data),
-                                                    icon: const Icon(Icons.edit, size: 16),
-                                                    tooltip: 'Edit',
-                                                    constraints: const BoxConstraints(
-                                                      minWidth: 24,
-                                                      minHeight: 24,
+                                                    DataCell(Text(email)),
+                                                    DataCell(Text(phone)),
+                                                    DataCell(Text(pets)),
+                                                    DataCell(Text(joinDate)),
+                                                    DataCell(
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                        decoration: BoxDecoration(
+                                                          color: status == 'active'
+                                                              ? AppTheme.successColor.withOpacity(0.1)
+                                                              : status == 'inactive'
+                                                                  ? AppTheme.errorColor.withOpacity(0.1)
+                                                                  : Colors.orange.withOpacity(0.1),
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                        child: Text(
+                                                          status == 'active' ? 'Active' : status == 'inactive' ? 'Inactive' : 'Dormant',
+                                                          style: TextStyle(
+                                                            color: status == 'active'
+                                                                ? AppTheme.successColor
+                                                                : status == 'inactive'
+                                                                    ? AppTheme.errorColor
+                                                                    : Colors.orange,
+                                                            fontWeight: FontWeight.w600,
+                                                          ),
+                                                        ),
+                                                      ),
                                                     ),
-                                                    padding: EdgeInsets.zero,
-                                                  ),
-                                                  IconButton(
-                                                    onPressed: () => _deleteUser(context, doc.id, name),
-                                                    icon: const Icon(Icons.delete, size: 16),
-                                                    tooltip: 'Delete',
-                                                    constraints: const BoxConstraints(
-                                                      minWidth: 24,
-                                                      minHeight: 24,
+                                                    DataCell(
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                        decoration: BoxDecoration(
+                                                          color: isOnline
+                                                              ? Colors.green.withOpacity(0.1)
+                                                              : Colors.grey.withOpacity(0.1),
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            Container(
+                                                              width: 8,
+                                                              height: 8,
+                                                              decoration: BoxDecoration(
+                                                                color: isOnline ? Colors.green : Colors.grey,
+                                                                shape: BoxShape.circle,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(width: 4),
+                                                            Text(
+                                                              isOnline ? 'Online' : 'Offline',
+                                                              style: TextStyle(
+                                                                color: isOnline ? Colors.green : Colors.grey,
+                                                                fontWeight: FontWeight.w600,
+                                                                fontSize: 12,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
                                                     ),
-                                                    padding: EdgeInsets.zero,
-                                                  ),
-                                                ],
-                                              ),
+                                                    DataCell(
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                        decoration: BoxDecoration(
+                                                          color: isPremium
+                                                              ? Colors.amber.withOpacity(0.1)
+                                                              : AppTheme.surfaceColor.withOpacity(0.5),
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            Icon(
+                                                              isPremium ? Icons.star : Icons.star_border,
+                                                              size: 14,
+                                                              color: isPremium ? Colors.amber : AppTheme.textSecondary,
+                                                            ),
+                                                            const SizedBox(width: 4),
+                                                            Text(
+                                                              isPremium ? 'Premium' : 'Regular',
+                                                              style: TextStyle(
+                                                                color: isPremium ? Colors.amber.shade700 : AppTheme.textSecondary,
+                                                                fontWeight: FontWeight.w600,
+                                                                fontSize: 12,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    DataCell(Text(lastActive)),
+                                                    DataCell(
+                                                      Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          IconButton(
+                                                            onPressed: () => _editUser(context, doc.id, data),
+                                                            icon: const Icon(Icons.edit, size: 16),
+                                                            tooltip: 'Edit',
+                                                            constraints: const BoxConstraints(
+                                                              minWidth: 24,
+                                                              minHeight: 24,
+                                                            ),
+                                                            padding: EdgeInsets.zero,
+                                                          ),
+                                                          IconButton(
+                                                            onPressed: () => _deleteUser(context, doc.id, name),
+                                                            icon: const Icon(Icons.delete, size: 16),
+                                                            tooltip: 'Delete',
+                                                            constraints: const BoxConstraints(
+                                                              minWidth: 24,
+                                                              minHeight: 24,
+                                                            ),
+                                                            padding: EdgeInsets.zero,
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                );
+                                              }).toList(),
                                             ),
-                                          ],
-                                        );
-                                      }).toList(),
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 );
