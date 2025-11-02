@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:furever_healthy_admin/theme/app_theme.dart';
 import 'package:furever_healthy_admin/widgets/sidebar.dart';
+import 'package:furever_healthy_admin/services/database_service.dart';
+import 'package:furever_healthy_admin/providers/auth_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -14,7 +19,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
   bool _emailNotifications = true;
   bool _pushNotifications = false;
-  String _language = 'English';
   
   // Security Settings
   bool _twoFactorAuth = false;
@@ -42,6 +46,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _dataRetentionEnabled = true;
   int _dataRetentionDays = 365;
   bool _anonymizeOldData = false;
+  
+  // Notification Management
+  int? _notificationThrottlePerDay = 50;
+  int? _notificationThrottlePerHour = 10;
+  
+  // Performance/Privacy
+  bool? _featureA = true;
+  bool? _featureB = true;
+  bool? _featureC = false;
+  int? _attachmentSizeLimitMB = 10;
 
   @override
   Widget build(BuildContext context) {
@@ -108,13 +122,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               'Receive system notifications',
                               _notificationsEnabled,
                               (value) => setState(() => _notificationsEnabled = value),
-                            ),
-                            _buildDropdownSetting(
-                              'Language',
-                              'Select your preferred language',
-                              _language,
-                              ['English', 'Spanish', 'French', 'German', 'Italian'],
-                              (value) => setState(() => _language = value!),
                             ),
                             _buildSwitchSetting(
                               'System Monitoring',
@@ -196,6 +203,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           'Security Settings',
                           Icons.security,
                           [
+                            // Change Password
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Change Admin Password',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppTheme.textPrimary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        const Text(
+                                          'Update your admin account password',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  ElevatedButton.icon(
+                                    onPressed: () => _showChangePasswordDialog(context),
+                                    icon: const Icon(Icons.lock_outline),
+                                    label: const Text('Change Password'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.primaryColor,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Divider(),
                             _buildSwitchSetting(
                               'Two-Factor Authentication',
                               'Add an extra layer of security',
@@ -307,6 +355,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         
                         const SizedBox(height: 24),
                         
+                        // Notification Management
+                        _buildSettingsSection(
+                          'Notification Management',
+                          Icons.notifications_active,
+                          [
+                            ElevatedButton.icon(
+                              onPressed: () => _showNotificationComposer(context),
+                              icon: const Icon(Icons.add),
+                              label: const Text('Compose Announcement'),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: () => _showBreedTipsComposer(context),
+                              icon: const Icon(Icons.tips_and_updates),
+                              label: const Text('Compose Breed-Specific Tips'),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: () => _showMaintenanceNoticeComposer(context),
+                              icon: const Icon(Icons.build),
+                              label: const Text('Create Maintenance Notice'),
+                            ),
+                            const SizedBox(height: 24),
+                            _buildSliderSetting(
+                              'Max Notifications per Day',
+                              'Limit notifications sent per day',
+                              (_notificationThrottlePerDay ?? 50).toDouble(),
+                              10.0,
+                              200.0,
+                              (value) => setState(() => _notificationThrottlePerDay = value.round()),
+                            ),
+                            _buildSliderSetting(
+                              'Max Notifications per Hour',
+                              'Limit notifications sent per hour',
+                              (_notificationThrottlePerHour ?? 10).toDouble(),
+                              1.0,
+                              50.0,
+                              (value) => setState(() => _notificationThrottlePerHour = value.round()),
+                            ),
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 24),
+                        
+                        // Performance/Privacy Settings
+                        _buildSettingsSection(
+                          'Performance/Privacy Settings',
+                          Icons.settings_applications,
+                          [
+                            _buildSwitchSetting(
+                              'Enable Feature A',
+                              'Toggle specific feature',
+                              _featureA ?? false,
+                              (value) => setState(() => _featureA = value),
+                            ),
+                            _buildSwitchSetting(
+                              'Enable Feature B',
+                              'Toggle specific feature',
+                              _featureB ?? false,
+                              (value) => setState(() => _featureB = value),
+                            ),
+                            _buildSwitchSetting(
+                              'Enable Feature C',
+                              'Toggle specific feature',
+                              _featureC ?? false,
+                              (value) => setState(() => _featureC = value),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildSliderSetting(
+                              'Data Retention ($_dataRetentionDays days)',
+                              'How long to keep data before cleanup',
+                              _dataRetentionDays.toDouble(),
+                              30.0,
+                              1095.0,
+                              (value) => setState(() => _dataRetentionDays = value.round()),
+                            ),
+                            _buildSliderSetting(
+                              'Attachment Size Limit (${_attachmentSizeLimitMB ?? 10} MB)',
+                              'Maximum size for file attachments',
+                              (_attachmentSizeLimitMB ?? 10).toDouble(),
+                              1.0,
+                              100.0,
+                              (value) => setState(() => _attachmentSizeLimitMB = value.round()),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: () => _viewChangeLog(context),
+                              icon: const Icon(Icons.history),
+                              label: const Text('View Change Log'),
+                            ),
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 24),
+                        
                         // Danger Zone
                         _buildSettingsSection(
                           'Danger Zone',
@@ -316,9 +459,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               'Clear System Cache',
                               'Remove all cached system data',
                               Icons.delete_sweep,
-                              () => _showConfirmDialog(
+                              () => _showPasswordConfirmDialog(
                                 'Clear System Cache',
-                                'This will remove all cached system data. Are you sure?',
+                                'This will remove all cached system data. This action cannot be undone.',
                                 () => _clearCache(),
                               ),
                             ),
@@ -326,9 +469,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               'Reset Admin Settings',
                               'Reset all admin settings to default',
                               Icons.restore,
-                              () => _showConfirmDialog(
+                              () => _showPasswordConfirmDialog(
                                 'Reset Admin Settings',
-                                'This will reset all admin settings to default values. Are you sure?',
+                                'This will reset all admin settings to default values. This action cannot be undone.',
                                 () => _resetSettings(),
                               ),
                             ),
@@ -336,7 +479,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               'System Maintenance',
                               'Put system into maintenance mode',
                               Icons.build,
-                              () => _showConfirmDialog(
+                              () => _showPasswordConfirmDialog(
                                 'System Maintenance',
                                 'This will put the system into maintenance mode. Users will not be able to access the system.',
                                 () => _enableMaintenanceMode(),
@@ -346,9 +489,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               'Force Logout All Users',
                               'Logout all active user sessions',
                               Icons.logout,
-                              () => _showConfirmDialog(
+                              () => _showPasswordConfirmDialog(
                                 'Force Logout All Users',
-                                'This will logout all active user sessions. Are you sure?',
+                                'This will logout all active user sessions immediately. Users will need to log in again.',
                                 () => _forceLogoutAllUsers(),
                               ),
                             ),
@@ -571,24 +714,95 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showConfirmDialog(String title, String message, VoidCallback onConfirm) {
+  void _showPasswordConfirmDialog(String title, String message, VoidCallback onConfirm) {
+    final passwordController = TextEditingController();
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
+        title: Row(
+          children: [
+            const Icon(Icons.warning, color: Colors.red),
+            const SizedBox(width: 8),
+            Expanded(child: Text(title)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(message),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              decoration: const InputDecoration(
+                labelText: 'Enter your admin password to confirm',
+                hintText: 'Type your admin password',
+                prefixIcon: Icon(Icons.lock),
+                border: OutlineInputBorder(),
+              ),
+              obscureText: true,
+              autofocus: true,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'This is a dangerous action. Please confirm your identity.',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              passwordController.dispose();
+              Navigator.pop(context);
+            },
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              onConfirm();
+          ElevatedButton.icon(
+            onPressed: () async {
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              
+              if (passwordController.text.isEmpty) {
+                scaffoldMessenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Please enter your admin password'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              
+              // Verify admin password
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              if (!isPasswordValid) {
+                scaffoldMessenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Invalid admin password'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                passwordController.clear();
+                return;
+              }
+              
+              // Password verified, close dialog and execute action
+              passwordController.dispose();
+              if (mounted) {
+                Navigator.pop(context);
+                onConfirm();
+              }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Confirm'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.check_circle),
+            label: const Text('Confirm'),
           ),
         ],
       ),
@@ -609,7 +823,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _notificationsEnabled = true;
       _emailNotifications = true;
       _pushNotifications = false;
-      _language = 'English';
       _twoFactorAuth = false;
       _sessionTimeout = true;
       _sessionTimeoutMinutes = 30;
@@ -659,5 +872,807 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: AppTheme.successColor,
       ),
     );
+  }
+
+  void _showNotificationComposer(BuildContext context) {
+    final titleController = TextEditingController();
+    final contentController = TextEditingController();
+    String targetAudience = 'all';
+    DateTime? scheduledDate;
+    bool sendNow = true;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.6,
+          constraints: const BoxConstraints(maxWidth: 700),
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.notifications, color: AppTheme.primaryColor),
+                    SizedBox(width: 8),
+                    Text(
+                      'Compose Announcement',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Title *',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: contentController,
+                  decoration: const InputDecoration(
+                    labelText: 'Content *',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 5,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: targetAudience,
+                  decoration: const InputDecoration(
+                    labelText: 'Target Audience',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'all', child: Text('All Users')),
+                    DropdownMenuItem(value: 'premium', child: Text('Premium Users')),
+                  ],
+                  onChanged: (value) => targetAudience = value!,
+                ),
+                const SizedBox(height: 16),
+                StatefulBuilder(
+                  builder: (context, setDialogState) => CheckboxListTile(
+                    title: const Text('Send Now'),
+                    value: sendNow,
+                    onChanged: (value) => setDialogState(() => sendNow = value ?? true),
+                  ),
+                ),
+                StatefulBuilder(
+                  builder: (context, setDialogState) {
+                    return sendNow
+                        ? const SizedBox.shrink()
+                        : Column(
+                            children: [
+                              const SizedBox(height: 8),
+                              ElevatedButton.icon(
+                                onPressed: () async {
+                                  final date = await showDatePicker(
+                                    context: context,
+                                    firstDate: DateTime.now(),
+                                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                                  );
+                                  if (date != null) {
+                                    final time = await showTimePicker(
+                                      context: context,
+                                      initialTime: TimeOfDay.now(),
+                                    );
+                                    if (time != null) {
+                                      setDialogState(() {
+                                        scheduledDate = DateTime(
+                                          date.year,
+                                          date.month,
+                                          date.day,
+                                          time.hour,
+                                          time.minute,
+                                        );
+                                      });
+                                    }
+                                  }
+                                },
+                                icon: const Icon(Icons.calendar_today),
+                                label: Text(
+                                  scheduledDate != null
+                                      ? DateFormat('MMM d, yyyy h:mm a').format(scheduledDate!)
+                                      : 'Schedule Date & Time',
+                                ),
+                              ),
+                            ],
+                          );
+                  },
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        if (titleController.text.isEmpty || contentController.text.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please fill in all required fields'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        try {
+                          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                          await DatabaseService.createNotification({
+                            'title': titleController.text,
+                            'content': contentController.text,
+                            'type': 'announcement',
+                            'targetAudience': targetAudience,
+                            'status': sendNow ? 'sent' : 'scheduled',
+                            'scheduledDate': scheduledDate != null
+                                ? Timestamp.fromDate(scheduledDate!)
+                                : null,
+                            'createdBy': authProvider.userEmail ?? 'admin',
+                            'createdAt': FieldValue.serverTimestamp(),
+                          });
+
+                          if (mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Announcement created successfully'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error creating announcement: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.send),
+                      label: const Text('Send'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showBreedTipsComposer(BuildContext context) {
+    final titleController = TextEditingController();
+    final contentController = TextEditingController();
+    String selectedBreed = '';
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.6,
+          constraints: const BoxConstraints(maxWidth: 700),
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.tips_and_updates, color: AppTheme.primaryColor),
+                    SizedBox(width: 8),
+                    Text(
+                      'Compose Breed-Specific Tips',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Title *',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: contentController,
+                  decoration: const InputDecoration(
+                    labelText: 'Content/Tips *',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 5,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Breed Key (optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) => selectedBreed = value,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        if (titleController.text.isEmpty || contentController.text.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please fill in all required fields'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        try {
+                          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                          await DatabaseService.createNotification({
+                            'title': titleController.text,
+                            'content': contentController.text,
+                            'type': 'breed_tips',
+                            'breedKey': selectedBreed,
+                            'status': 'sent',
+                            'createdBy': authProvider.userEmail ?? 'admin',
+                            'createdAt': FieldValue.serverTimestamp(),
+                          });
+
+                          if (mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Breed tips created successfully'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error creating breed tips: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.send),
+                      label: const Text('Send'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showMaintenanceNoticeComposer(BuildContext context) {
+    final titleController = TextEditingController(text: 'System Maintenance');
+    final contentController = TextEditingController();
+    DateTime? maintenanceStart;
+    DateTime? maintenanceEnd;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.6,
+          constraints: const BoxConstraints(maxWidth: 700),
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.build, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text(
+                      'Create Maintenance Notice',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Title *',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: contentController,
+                  decoration: const InputDecoration(
+                    labelText: 'Maintenance Details *',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 5,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                          );
+                          if (date != null) {
+                            final time = await showTimePicker(
+                              context: context,
+                              initialTime: TimeOfDay.now(),
+                            );
+                            if (time != null) {
+                              setState(() {
+                                maintenanceStart = DateTime(
+                                  date.year,
+                                  date.month,
+                                  date.day,
+                                  time.hour,
+                                  time.minute,
+                                );
+                              });
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.access_time),
+                        label: Text(
+                          maintenanceStart != null
+                              ? 'Start: ${DateFormat('MMM d, h:mm a').format(maintenanceStart!)}'
+                              : 'Start Time',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                          );
+                          if (date != null) {
+                            final time = await showTimePicker(
+                              context: context,
+                              initialTime: TimeOfDay.now(),
+                            );
+                            if (time != null) {
+                              setState(() {
+                                maintenanceEnd = DateTime(
+                                  date.year,
+                                  date.month,
+                                  date.day,
+                                  time.hour,
+                                  time.minute,
+                                );
+                              });
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.access_time),
+                        label: Text(
+                          maintenanceEnd != null
+                              ? 'End: ${DateFormat('MMM d, h:mm a').format(maintenanceEnd!)}'
+                              : 'End Time',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        if (contentController.text.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please fill in maintenance details'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        try {
+                          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                          await DatabaseService.createNotification({
+                            'title': titleController.text,
+                            'content': contentController.text,
+                            'type': 'maintenance',
+                            'maintenanceStart': maintenanceStart != null
+                                ? Timestamp.fromDate(maintenanceStart!)
+                                : null,
+                            'maintenanceEnd': maintenanceEnd != null
+                                ? Timestamp.fromDate(maintenanceEnd!)
+                                : null,
+                            'status': 'sent',
+                            'createdBy': authProvider.userEmail ?? 'admin',
+                            'createdAt': FieldValue.serverTimestamp(),
+                          });
+
+                          if (mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Maintenance notice created successfully'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error creating maintenance notice: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.send),
+                      label: const Text('Send'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showChangePasswordDialog(BuildContext context) {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    bool _obscureCurrentPassword = true;
+    bool _obscureNewPassword = true;
+    bool _obscureConfirmPassword = true;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.5,
+            constraints: const BoxConstraints(maxWidth: 500),
+            padding: const EdgeInsets.all(24),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.lock, color: AppTheme.primaryColor),
+                      SizedBox(width: 8),
+                      Text(
+                        'Change Password',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  TextField(
+                    controller: currentPasswordController,
+                    obscureText: _obscureCurrentPassword,
+                    decoration: InputDecoration(
+                      labelText: 'Current Password *',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureCurrentPassword ? Icons.visibility : Icons.visibility_off,
+                        ),
+                        onPressed: () {
+                          setDialogState(() {
+                            _obscureCurrentPassword = !_obscureCurrentPassword;
+                          });
+                        },
+                      ),
+                      border: const OutlineInputBorder(),
+                    ),
+                    autofocus: true,
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: newPasswordController,
+                    obscureText: _obscureNewPassword,
+                    decoration: InputDecoration(
+                      labelText: 'New Password *',
+                      prefixIcon: const Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureNewPassword ? Icons.visibility : Icons.visibility_off,
+                        ),
+                        onPressed: () {
+                          setDialogState(() {
+                            _obscureNewPassword = !_obscureNewPassword;
+                          });
+                        },
+                      ),
+                      border: const OutlineInputBorder(),
+                      helperText: 'Must be at least 8 characters long',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: confirmPasswordController,
+                    obscureText: _obscureConfirmPassword,
+                    decoration: InputDecoration(
+                      labelText: 'Confirm New Password *',
+                      prefixIcon: const Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
+                        ),
+                        onPressed: () {
+                          setDialogState(() {
+                            _obscureConfirmPassword = !_obscureConfirmPassword;
+                          });
+                        },
+                      ),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          currentPasswordController.dispose();
+                          newPasswordController.dispose();
+                          confirmPasswordController.dispose();
+                          Navigator.pop(context);
+                        },
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 16),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+                          if (currentPasswordController.text.isEmpty ||
+                              newPasswordController.text.isEmpty ||
+                              confirmPasswordController.text.isEmpty) {
+                            scaffoldMessenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('Please fill in all fields'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+
+                          if (newPasswordController.text.length < 8) {
+                            scaffoldMessenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('New password must be at least 8 characters long'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+
+                          if (newPasswordController.text != confirmPasswordController.text) {
+                            scaffoldMessenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('New passwords do not match'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+
+                          if (newPasswordController.text == currentPasswordController.text) {
+                            scaffoldMessenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('New password must be different from current password'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+
+                          try {
+                            final success = await DatabaseService.changeAdminPassword(
+                              currentPasswordController.text,
+                              newPasswordController.text,
+                            );
+
+                            if (mounted) {
+                              currentPasswordController.dispose();
+                              newPasswordController.dispose();
+                              confirmPasswordController.dispose();
+                              Navigator.pop(context);
+
+                              if (success) {
+                                scaffoldMessenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Password changed successfully'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              } else {
+                                scaffoldMessenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Invalid current password'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              scaffoldMessenger.showSnackBar(
+                                SnackBar(
+                                  content: Text('Error changing password: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.check_circle),
+                        label: const Text('Change Password'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _viewChangeLog(BuildContext context) async {
+    try {
+      final history = await DatabaseService.getConfigHistory(limit: 50);
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.7,
+            constraints: const BoxConstraints(maxWidth: 900),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.history, color: AppTheme.primaryColor),
+                    SizedBox(width: 8),
+                    Text(
+                      'Change Log',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Expanded(
+                  child: history.isEmpty
+                      ? const Center(child: Text('No changes recorded'))
+                      : ListView.builder(
+                          itemCount: history.length,
+                          itemBuilder: (context, index) {
+                            final change = history[index];
+                            final changedAt = change['changedAt'] is Timestamp
+                                ? (change['changedAt'] as Timestamp).toDate()
+                                : DateTime.now();
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: ListTile(
+                                leading: const Icon(Icons.edit, color: AppTheme.primaryColor),
+                                title: Text(
+                                  '${change['setting'] ?? 'Unknown'}',
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Changed by: ${change['adminEmail'] ?? 'Unknown'}',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'From: ${change['oldValue'] ?? 'N/A'} → To: ${change['newValue'] ?? 'N/A'}',
+                                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                                    ),
+                                  ],
+                                ),
+                                trailing: Text(
+                                  DateFormat('MMM d, yyyy\nh:mm a').format(changedAt),
+                                  style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                                  textAlign: TextAlign.end,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading change log: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

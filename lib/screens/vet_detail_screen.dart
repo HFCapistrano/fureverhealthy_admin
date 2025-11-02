@@ -111,7 +111,45 @@ class _VetDetailScreenState extends State<VetDetailScreen> {
                               'Personal Information',
                               [
                                 _buildInfoRow('Name', name),
-                                _buildInfoRow('Email', email),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SizedBox(
+                                      width: 150,
+                                      child: Text(
+                                        'Email',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              email,
+                                              style: const TextStyle(fontSize: 16),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          ElevatedButton.icon(
+                                            onPressed: () => _sendPasswordResetEmail(context, email, name),
+                                            icon: const Icon(Icons.lock_reset, size: 16),
+                                            label: const Text('Send Reset Email'),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.orange,
+                                              foregroundColor: Colors.white,
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                              minimumSize: const Size(0, 36),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                                 _buildInfoRow('Phone', phone),
                                 _buildInfoRow('License Number', license),
                               ],
@@ -611,6 +649,144 @@ class _VetDetailScreenState extends State<VetDetailScreen> {
       return timestamp.toDate().toString().substring(0, 16);
     }
     return timestamp.toString();
+  }
+
+  void _sendPasswordResetEmail(BuildContext context, String email, String vetName) {
+    final passwordController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.lock_reset, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Send Password Reset Email'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Send password reset email to $vetName?'),
+            const SizedBox(height: 8),
+            Text(
+              'Email: $email',
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              decoration: const InputDecoration(
+                labelText: 'Enter your admin password to confirm',
+                hintText: 'Type your admin password',
+                prefixIcon: Icon(Icons.lock),
+              ),
+              obscureText: true,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'This action will send a password reset email to the veterinarian.',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              passwordController.dispose();
+              Navigator.pop(context);
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              
+              if (passwordController.text.isEmpty) {
+                scaffoldMessenger.showSnackBar(
+                  const SnackBar(content: Text('Please enter your admin password')),
+                );
+                return;
+              }
+              
+              // Verify admin password
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              if (!isPasswordValid) {
+                scaffoldMessenger.showSnackBar(
+                  const SnackBar(content: Text('Invalid admin password')),
+                );
+                passwordController.clear();
+                return;
+              }
+              
+              // Show loading indicator
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const AlertDialog(
+                  content: Row(
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(width: 16),
+                      Text('Sending password reset email...'),
+                    ],
+                  ),
+                ),
+              );
+              
+              try {
+                final success = await DatabaseService.sendPasswordResetEmail(email);
+                if (mounted) {
+                  Navigator.pop(context); // Close loading dialog
+                  Navigator.pop(context); // Close password dialog
+                  passwordController.dispose();
+                  
+                  if (success) {
+                    scaffoldMessenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Password reset email sent to $vetName'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } else {
+                    scaffoldMessenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Failed to send password reset email'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              } catch (e) {
+                if (mounted) {
+                  Navigator.pop(context); // Close loading dialog
+                  Navigator.pop(context); // Close password dialog
+                  passwordController.dispose();
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Error sending password reset email: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.send),
+            label: const Text('Send Reset Email'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

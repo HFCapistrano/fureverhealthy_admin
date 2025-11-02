@@ -19,6 +19,9 @@ class _VetsScreenState extends State<VetsScreen> {
   String _verificationFilter = 'all';
   String _userTypeFilter = 'all';
   
+  // Bulk selection
+  Set<String> _selectedVetIds = {};
+  
   // Scroll controllers for proper scroll bar control
   final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _horizontalScrollController = ScrollController();
@@ -71,6 +74,8 @@ class _VetsScreenState extends State<VetsScreen> {
     String status = vetData['status'] ?? 'active';
     String userType = vetData['userType'] ?? 'regular';
     bool verified = vetData['verified'] ?? false;
+    bool licenseVerified = vetData['licenseVerified'] ?? false;
+    bool profileHidden = vetData['profileHidden'] ?? false;
 
     showDialog(
       context: context,
@@ -365,6 +370,56 @@ class _VetsScreenState extends State<VetsScreen> {
                           ],
                         ),
                       ),
+                      const SizedBox(height: 16),
+                      
+                      // License Verified and Hide Profile Row
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: AppTheme.borderColor),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.badge, color: AppTheme.primaryColor),
+                                  const SizedBox(width: 8),
+                                  const Text('License Verified'),
+                                  const Spacer(),
+                                  Checkbox(
+                                    value: licenseVerified,
+                                    onChanged: (value) => licenseVerified = value!,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: AppTheme.borderColor),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.visibility_off, color: AppTheme.primaryColor),
+                                  const SizedBox(width: 8),
+                                  const Text('Hide Profile'),
+                                  const Spacer(),
+                                  Checkbox(
+                                    value: profileHidden,
+                                    onChanged: (value) => profileHidden = value!,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -399,6 +454,8 @@ class _VetsScreenState extends State<VetsScreen> {
                           // Account status and online status are read-only and not updated here
                           'userType': userType,
                           'verified': verified,
+                          'licenseVerified': licenseVerified,
+                          'profileHidden': profileHidden,
                         });
                         if (mounted) {
                           Navigator.pop(context);
@@ -1193,10 +1250,154 @@ class _VetsScreenState extends State<VetsScreen> {
                           ],
                         ),
                       ),
-                      ElevatedButton.icon(
-                        onPressed: () => _addVet(context),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add Vet'),
+                      Row(
+                        children: [
+                          if (_selectedVetIds.isNotEmpty) ...[
+                            ElevatedButton.icon(
+                              onPressed: () async {
+                                final passwordController = TextEditingController();
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Row(
+                                      children: [
+                                        Icon(Icons.verified_user, color: AppTheme.primaryColor),
+                                        SizedBox(width: 8),
+                                        Text('Bulk Verify Vets'),
+                                      ],
+                                    ),
+                                    content: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('Are you sure you want to verify ${_selectedVetIds.length} veterinarians?'),
+                                        const SizedBox(height: 16),
+                                        TextField(
+                                          controller: passwordController,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Enter your admin password to confirm',
+                                            prefixIcon: Icon(Icons.lock),
+                                          ),
+                                          obscureText: true,
+                                        ),
+                                      ],
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () {
+                                          passwordController.dispose();
+                                          Navigator.pop(context);
+                                        },
+                                        child: const Text('Cancel'),
+                                      ),
+                                      ElevatedButton.icon(
+                                        onPressed: () async {
+                                          final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+                                          if (!isPasswordValid) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(
+                                                content: Text('Invalid admin password'),
+                                                backgroundColor: Colors.red,
+                                              ),
+                                            );
+                                            passwordController.clear();
+                                            return;
+                                          }
+                                          
+                                          try {
+                                            await DatabaseService.bulkVerifyVets(_selectedVetIds.toList());
+                                            if (mounted) {
+                                              passwordController.dispose();
+                                              Navigator.pop(context);
+                                              setState(() {
+                                                _selectedVetIds.clear();
+                                              });
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('${_selectedVetIds.length} veterinarians verified successfully'),
+                                                  backgroundColor: Colors.green,
+                                                ),
+                                              );
+                                            }
+                                          } catch (e) {
+                                            if (mounted) {
+                                              passwordController.dispose();
+                                              Navigator.pop(context);
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('Error verifying vets: $e'),
+                                                  backgroundColor: Colors.red,
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        },
+                                        icon: const Icon(Icons.verified_user),
+                                        label: const Text('Verify'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.verified_user),
+                              label: Text('Verify (${_selectedVetIds.length})'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryColor,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              try {
+                                final snapshot = await DatabaseService.vets.get();
+                                final vets = snapshot.docs.map((doc) {
+                                  final data = doc.data() as Map<String, dynamic>;
+                                  data['id'] = doc.id;
+                                  return data;
+                                }).toList();
+                                
+                                final csv = await DatabaseService.exportVetsToCSV(vets);
+                                
+                                // In a real app, you would save this to a file or download it
+                                // For now, show it in a dialog
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('Export CSV'),
+                                    content: SelectableText(csv),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text('Close'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error exporting: $e'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.download),
+                            label: const Text('Export CSV'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            onPressed: () => _addVet(context),
+                            icon: const Icon(Icons.add),
+                            label: const Text('Add Vet'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -1378,9 +1579,24 @@ class _VetsScreenState extends State<VetsScreen> {
                                             constraints: const BoxConstraints(minWidth: 1400),
                                             child: DataTable(
                                               columnSpacing: 24,
-                                              columns: const [
-                                                DataColumn(label: Text('View')),
-                                                DataColumn(label: Text('Veterinarian')),
+                                              columns: [
+                                                DataColumn(
+                                                  label: Checkbox(
+                                                    value: _selectedVetIds.length == filtered.length && filtered.isNotEmpty,
+                                                    tristate: _selectedVetIds.isNotEmpty && _selectedVetIds.length < filtered.length,
+                                                    onChanged: (value) {
+                                                      setState(() {
+                                                        if (value == true) {
+                                                          _selectedVetIds = Set.from(filtered.map((doc) => doc.id));
+                                                        } else {
+                                                          _selectedVetIds.clear();
+                                                        }
+                                                      });
+                                                    },
+                                                  ),
+                                                ),
+                                                const DataColumn(label: Text('View')),
+                                                const DataColumn(label: Text('Veterinarian')),
                                                 DataColumn(label: Text('Contact')),
                                                 DataColumn(label: Text('Specialization')),
                                                 DataColumn(label: Text('Experience')),
@@ -1410,6 +1626,20 @@ class _VetsScreenState extends State<VetsScreen> {
 
                                         return DataRow(
                                           cells: [
+                                            DataCell(
+                                              Checkbox(
+                                                value: _selectedVetIds.contains(doc.id),
+                                                onChanged: (value) {
+                                                  setState(() {
+                                                    if (value == true) {
+                                                      _selectedVetIds.add(doc.id);
+                                                    } else {
+                                                      _selectedVetIds.remove(doc.id);
+                                                    }
+                                                  });
+                                                },
+                                              ),
+                                            ),
                                             DataCell(
                                               ElevatedButton(
                                                 onPressed: () => _viewVetDetails(context, doc.id, data),
@@ -1595,6 +1825,14 @@ class _VetsScreenState extends State<VetsScreen> {
                                                     onPressed: () => _editVet(context, doc.id, data),
                                                     icon: const Icon(Icons.edit, size: 16),
                                                     tooltip: 'Edit',
+                                                    constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                                                    padding: EdgeInsets.zero,
+                                                  ),
+                                                  IconButton(
+                                                    onPressed: () => _sendPasswordResetEmail(context, email, name),
+                                                    icon: const Icon(Icons.lock_reset, size: 16),
+                                                    tooltip: 'Send Password Reset Email',
+                                                    color: Colors.orange,
                                                     constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                                                     padding: EdgeInsets.zero,
                                                   ),

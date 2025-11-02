@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:furever_healthy_admin/theme/app_theme.dart';
 import 'package:furever_healthy_admin/widgets/sidebar.dart';
 import 'package:furever_healthy_admin/services/database_service.dart';
+import 'package:furever_healthy_admin/providers/auth_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CommunityScreen extends StatefulWidget {
@@ -40,6 +42,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   void _deletePost(BuildContext context, String postId, String title) {
+    final passwordController = TextEditingController();
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -47,14 +51,14 @@ class _CommunityScreenState extends State<CommunityScreen> {
           children: [
             Icon(Icons.delete, color: Colors.red),
             SizedBox(width: 8),
-            Text('Delete Post'),
+            Text('Remove Post'),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Are you sure you want to delete this post?'),
+            const Text('Are you sure you want to remove this post?'),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
@@ -71,6 +75,15 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              decoration: const InputDecoration(
+                labelText: 'Enter your admin password to confirm',
+                prefixIcon: Icon(Icons.lock),
+              ),
+              obscureText: true,
+            ),
             const SizedBox(height: 8),
             const Text(
               'This action cannot be undone.',
@@ -84,29 +97,57 @@ class _CommunityScreenState extends State<CommunityScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              passwordController.dispose();
+              Navigator.pop(context);
+            },
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () async {
               final scaffoldMessenger = ScaffoldMessenger.of(context);
+              
+              if (passwordController.text.isEmpty) {
+                scaffoldMessenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Please enter your admin password'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              if (!isPasswordValid) {
+                scaffoldMessenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Invalid admin password'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                passwordController.clear();
+                return;
+              }
+              
               try {
                 await DatabaseService.deleteCommunityPost(postId);
                 if (mounted) {
+                  passwordController.dispose();
                   Navigator.pop(context);
                   scaffoldMessenger.showSnackBar(
                     const SnackBar(
-                      content: Text('Post deleted successfully'),
+                      content: Text('Post removed successfully'),
                       backgroundColor: Colors.green,
                     ),
                   );
                 }
               } catch (e) {
                 if (mounted) {
+                  passwordController.dispose();
                   Navigator.pop(context);
                   scaffoldMessenger.showSnackBar(
                     SnackBar(
-                      content: Text('Error deleting post: $e'),
+                      content: Text('Error removing post: $e'),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -117,7 +158,374 @@ class _CommunityScreenState extends State<CommunityScreen> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Delete'),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMuteUserDialog(BuildContext context, String userId, String userName) {
+    final reasonController = TextEditingController();
+    final passwordController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.volume_off, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('Mute User'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Mute user: $userName'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              decoration: const InputDecoration(
+                labelText: 'Reason for muting *',
+                hintText: 'Enter reason for muting this user',
+              ),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              decoration: const InputDecoration(
+                labelText: 'Enter your admin password to confirm',
+                prefixIcon: Icon(Icons.lock),
+              ),
+              obscureText: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              reasonController.dispose();
+              passwordController.dispose();
+              Navigator.pop(context);
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              if (reasonController.text.isEmpty || passwordController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please fill in all fields'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              if (!isPasswordValid) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Invalid admin password'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                passwordController.clear();
+                return;
+              }
+              
+              try {
+                final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                await DatabaseService.muteUser(userId, reasonController.text);
+                await DatabaseService.addStrike(
+                  userId,
+                  reasonController.text,
+                  'mute',
+                  authProvider.adminUser?.id ?? '',
+                  authProvider.userEmail ?? 'admin',
+                );
+                
+                if (mounted) {
+                  reasonController.dispose();
+                  passwordController.dispose();
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('User muted successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  reasonController.dispose();
+                  passwordController.dispose();
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error muting user: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.volume_off),
+            label: const Text('Mute'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSuspendUserDialog(BuildContext context, String userId, String userName) {
+    final reasonController = TextEditingController();
+    final passwordController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.block, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Suspend User'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Suspend user: $userName'),
+            const SizedBox(height: 8),
+            const Text(
+              'This will suspend the user account and prevent them from accessing the system.',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              decoration: const InputDecoration(
+                labelText: 'Reason for suspension *',
+                hintText: 'Enter reason for suspending this user',
+              ),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              decoration: const InputDecoration(
+                labelText: 'Enter your admin password to confirm',
+                prefixIcon: Icon(Icons.lock),
+              ),
+              obscureText: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              reasonController.dispose();
+              passwordController.dispose();
+              Navigator.pop(context);
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              if (reasonController.text.isEmpty || passwordController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please fill in all fields'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              if (!isPasswordValid) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Invalid admin password'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                passwordController.clear();
+                return;
+              }
+              
+              try {
+                final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                await DatabaseService.escalateToSuspension(userId, reasonController.text);
+                await DatabaseService.addStrike(
+                  userId,
+                  reasonController.text,
+                  'suspension',
+                  authProvider.adminUser?.id ?? '',
+                  authProvider.userEmail ?? 'admin',
+                );
+                
+                if (mounted) {
+                  reasonController.dispose();
+                  passwordController.dispose();
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('User suspended successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  reasonController.dispose();
+                  passwordController.dispose();
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error suspending user: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.block),
+            label: const Text('Suspend'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showWarningDialog(BuildContext context, String userId, String userName) {
+    final reasonController = TextEditingController();
+    final passwordController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Issue Warning'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Issue warning to: $userName'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              decoration: const InputDecoration(
+                labelText: 'Warning reason *',
+                hintText: 'Enter reason for this warning',
+              ),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              decoration: const InputDecoration(
+                labelText: 'Enter your admin password to confirm',
+                prefixIcon: Icon(Icons.lock),
+              ),
+              obscureText: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              reasonController.dispose();
+              passwordController.dispose();
+              Navigator.pop(context);
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              if (reasonController.text.isEmpty || passwordController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please fill in all fields'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              if (!isPasswordValid) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Invalid admin password'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                passwordController.clear();
+                return;
+              }
+              
+              try {
+                final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                await DatabaseService.addStrike(
+                  userId,
+                  reasonController.text,
+                  'warning',
+                  authProvider.adminUser?.id ?? '',
+                  authProvider.userEmail ?? 'admin',
+                );
+                
+                if (mounted) {
+                  reasonController.dispose();
+                  passwordController.dispose();
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Warning issued successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  reasonController.dispose();
+                  passwordController.dispose();
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error issuing warning: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.warning),
+            label: const Text('Issue Warning'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),
@@ -722,13 +1130,78 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                                   icon: const Icon(Icons.visibility),
                                                   tooltip: 'View Details',
                                                 ),
-                                                IconButton(
-                                                  onPressed: () =>
-                                                      _deletePost(context,
-                                                          doc.id, title),
-                                                  icon: const Icon(Icons.delete),
-                                                  color: Colors.red,
-                                                  tooltip: 'Delete',
+                                                PopupMenuButton<String>(
+                                                  icon: const Icon(Icons.more_vert),
+                                                  onSelected: (value) {
+                                                    final userId = data['userId'] ?? '';
+                                                    final userName = data['userName'] ?? 'Unknown';
+                                                    if (userId.isEmpty) {
+                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                        const SnackBar(
+                                                          content: Text('User ID not found'),
+                                                          backgroundColor: Colors.red,
+                                                        ),
+                                                      );
+                                                      return;
+                                                    }
+                                                    
+                                                    switch (value) {
+                                                      case 'delete':
+                                                        _deletePost(context, doc.id, title);
+                                                        break;
+                                                      case 'mute':
+                                                        _showMuteUserDialog(context, userId, userName);
+                                                        break;
+                                                      case 'suspend':
+                                                        _showSuspendUserDialog(context, userId, userName);
+                                                        break;
+                                                      case 'warning':
+                                                        _showWarningDialog(context, userId, userName);
+                                                        break;
+                                                    }
+                                                  },
+                                                  itemBuilder: (context) => [
+                                                    const PopupMenuItem(
+                                                      value: 'delete',
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(Icons.delete, color: Colors.red, size: 18),
+                                                          SizedBox(width: 8),
+                                                          Text('Remove Post'),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    const PopupMenuItem(
+                                                      value: 'warning',
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(Icons.warning, color: Colors.orange, size: 18),
+                                                          SizedBox(width: 8),
+                                                          Text('Issue Warning'),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    const PopupMenuItem(
+                                                      value: 'mute',
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(Icons.volume_off, color: Colors.blue, size: 18),
+                                                          SizedBox(width: 8),
+                                                          Text('Mute User'),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    const PopupMenuItem(
+                                                      value: 'suspend',
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(Icons.block, color: Colors.red, size: 18),
+                                                          SizedBox(width: 8),
+                                                          Text('Suspend User'),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ],
                                             ),

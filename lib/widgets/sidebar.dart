@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:furever_healthy_admin/theme/app_theme.dart';
+import 'package:furever_healthy_admin/providers/auth_provider.dart';
+import 'package:furever_healthy_admin/widgets/permission_gate.dart';
 
 class Sidebar extends StatefulWidget {
   const Sidebar({super.key});
@@ -63,121 +66,175 @@ class _SidebarState extends State<Sidebar> {
           
           // Navigation Menu
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              children: [
-                _buildMenuItem(
-                  context,
-                  icon: Icons.dashboard,
-                  title: 'Dashboard',
-                  route: '/dashboard',
-                  isActive: currentLocation == '/dashboard',
-                ),
-                _buildMenuItem(
-                  context,
-                  icon: Icons.people,
-                  title: 'Users',
-                  route: '/users',
-                  isActive: currentLocation == '/users',
-                ),
-                _buildMenuItem(
-                  context,
-                  icon: Icons.medical_services,
-                  title: 'Vets',
-                  route: '/vets',
-                  isActive: currentLocation == '/vets',
-                ),
-                _buildMenuItem(
-                  context,
-                  icon: Icons.analytics,
-                  title: 'Analytics',
-                  route: '/analytics',
-                  isActive: currentLocation == '/analytics',
-                ),
-                _buildMenuItem(
-                  context,
-                  icon: Icons.pets,
-                  title: 'Pet Breeds',
-                  route: '/pet-breeds',
-                  isActive: currentLocation == '/pet-breeds',
-                ),
-                _buildMenuItem(
-                  context,
-                  icon: Icons.feedback,
-                  title: 'Feedbacks',
-                  route: '/feedbacks',
-                  isActive: currentLocation == '/feedbacks',
-                ),
-                _buildMenuItem(
-                  context,
-                  icon: Icons.star,
-                  title: 'Ratings',
-                  route: '/ratings',
-                  isActive: currentLocation == '/ratings',
-                ),
-                _buildMenuItem(
-                  context,
-                  icon: Icons.groups,
-                  title: 'Community',
-                  route: '/community',
-                  isActive: currentLocation == '/community',
-                ),
-                _buildMenuItem(
-                  context,
-                  icon: Icons.settings,
-                  title: 'Settings',
-                  route: '/settings',
-                  isActive: currentLocation == '/settings',
-                ),
-              ],
+            child: Consumer<AuthProvider>(
+              builder: (context, authProvider, child) {
+                return ListView(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  children: [
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.dashboard,
+                      title: 'Dashboard',
+                      route: '/dashboard',
+                      isActive: currentLocation == '/dashboard',
+                    ),
+                    PermissionGate(
+                      permission: 'users.view',
+                      child: _buildMenuItem(
+                        context,
+                        icon: Icons.people,
+                        title: 'Users',
+                        route: '/users',
+                        isActive: currentLocation == '/users',
+                      ),
+                    ),
+                    PermissionGate(
+                      permission: 'vets.view',
+                      child: _buildMenuItem(
+                        context,
+                        icon: Icons.medical_services,
+                        title: 'Vets',
+                        route: '/vets',
+                        isActive: currentLocation == '/vets',
+                      ),
+                    ),
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.analytics,
+                      title: 'Analytics',
+                      route: '/analytics',
+                      isActive: currentLocation == '/analytics',
+                    ),
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.pets,
+                      title: 'Pet Breeds',
+                      route: '/pet-breeds',
+                      isActive: currentLocation == '/pet-breeds',
+                    ),
+                    PermissionGate(
+                      permission: 'feedbacks.view',
+                      child: _buildMenuItem(
+                        context,
+                        icon: Icons.feedback,
+                        title: 'Feedbacks',
+                        route: '/feedbacks',
+                        isActive: currentLocation == '/feedbacks',
+                      ),
+                    ),
+                    PermissionGate(
+                      permission: 'community.view',
+                      child: _buildMenuItem(
+                        context,
+                        icon: Icons.groups,
+                        title: 'Community',
+                        route: '/community',
+                        isActive: currentLocation == '/community',
+                      ),
+                    ),
+                    PermissionGate(
+                      permission: 'contents.view',
+                      child: _buildMenuItem(
+                        context,
+                        icon: Icons.article,
+                        title: 'Contents',
+                        route: '/contents',
+                        isActive: currentLocation == '/contents' || 
+                                 currentLocation.startsWith('/contents/'),
+                      ),
+                    ),
+                    if (authProvider.isSuperAdmin)
+                      _buildMenuItem(
+                        context,
+                        icon: Icons.admin_panel_settings,
+                        title: 'Admin Management',
+                        route: '/admin-management',
+                        isActive: currentLocation == '/admin-management',
+                      ),
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.settings,
+                      title: 'Settings',
+                      route: '/settings',
+                      isActive: currentLocation == '/settings',
+                    ),
+                  ],
+                );
+              },
             ),
           ),
           
           // User Info Section
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(color: AppTheme.borderColor),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.person,
-                    color: AppTheme.primaryColor,
-                    size: 20,
+          Consumer<AuthProvider>(
+            builder: (context, authProvider, child) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: AppTheme.borderColor),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Admin User',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      Text(
-                        'admin@pethealth.com',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
+                      child: const Icon(
+                        Icons.person,
+                        color: AppTheme.primaryColor,
+                        size: 20,
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            authProvider.userName ?? 'Admin User',
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            authProvider.userEmail ?? 'admin@pethealth.com',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                          if (authProvider.userRole != null) ...[
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: authProvider.isSuperAdmin
+                                    ? Colors.amber.withOpacity(0.1)
+                                    : AppTheme.primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                authProvider.isSuperAdmin ? 'Super Admin' : 'Admin',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: authProvider.isSuperAdmin
+                                      ? Colors.amber.shade700
+                                      : AppTheme.primaryColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
         ],
       ),

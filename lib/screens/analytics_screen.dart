@@ -4,6 +4,8 @@ import 'package:furever_healthy_admin/theme/app_theme.dart';
 import 'package:furever_healthy_admin/widgets/sidebar.dart';
 import 'package:furever_healthy_admin/providers/analytics_provider.dart';
 import 'package:furever_healthy_admin/models/analytics_data.dart';
+import 'package:furever_healthy_admin/services/database_service.dart';
+import 'package:intl/intl.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -14,6 +16,10 @@ class AnalyticsScreen extends StatefulWidget {
 
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
   String _selectedPeriod = 'Last 30 Days';
+  DateTime? _startDate;
+  DateTime? _endDate;
+  bool _isLoadingReports = false;
+  Map<String, dynamic> _reportData = {};
 
   @override
   void initState() {
@@ -21,7 +27,92 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     // Load analytics data from Firebase when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AnalyticsProvider>().loadAnalyticsData();
+      _loadReports();
     });
+  }
+
+  Future<void> _loadReports() async {
+    setState(() => _isLoadingReports = true);
+    try {
+      final results = await Future.wait([
+        DatabaseService.getActiveUsersCount(startDate: _startDate, endDate: _endDate),
+        DatabaseService.getActiveVetsCount(startDate: _startDate, endDate: _endDate),
+        DatabaseService.getAppointmentFunnel(startDate: _startDate, endDate: _endDate),
+        DatabaseService.getCancellationReasons(startDate: _startDate, endDate: _endDate),
+        DatabaseService.getTopFeedbackCategories(startDate: _startDate, endDate: _endDate),
+      ]);
+
+      setState(() {
+        _reportData = {
+          'activeUsers': results[0] as int,
+          'activeVets': results[1] as int,
+          'appointmentFunnel': results[2] as Map<String, dynamic>,
+          'cancellationReasons': results[3] as Map<String, int>,
+          'topFeedbackCategories': results[4] as Map<String, int>,
+        };
+        _isLoadingReports = false;
+      });
+    } catch (e) {
+      setState(() => _isLoadingReports = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading reports: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _selectDateRange() async {
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: _startDate != null && _endDate != null
+          ? DateTimeRange(start: _startDate!, end: _endDate!)
+          : null,
+    );
+    if (picked != null) {
+      setState(() {
+        _startDate = picked.start;
+        _endDate = picked.end;
+      });
+      _loadReports();
+    }
+  }
+
+  void _exportToCSV() async {
+    try {
+      final csv = await DatabaseService.exportReportsToCSV(_reportData);
+      
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Export CSV'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: SelectableText(csv),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error exporting: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -94,6 +185,26 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                 _selectedPeriod = value!;
                               });
                             },
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            onPressed: _selectDateRange,
+                            icon: const Icon(Icons.date_range),
+                            label: Text(
+                              _startDate != null && _endDate != null
+                                  ? '${DateFormat('MMM d').format(_startDate!)} - ${DateFormat('MMM d').format(_endDate!)}'
+                                  : 'Select Date Range',
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            onPressed: _exportToCSV,
+                            icon: const Icon(Icons.download),
+                            label: const Text('Export CSV'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                            ),
                           ),
                         ],
                       ),
@@ -320,6 +431,175 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                 ),
                               ],
                             ),
+                            
+                            const SizedBox(height: 48),
+                            
+                            // Divider
+                            const Divider(thickness: 2),
+                            
+                            const SizedBox(height: 48),
+                            
+                            // Reports & KPIs Section Header
+                            Text(
+                              'Reports & KPIs',
+                              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            
+                            // KPI Cards
+                            if (_isLoadingReports)
+                              const Center(child: Padding(
+                                padding: EdgeInsets.all(32.0),
+                                child: CircularProgressIndicator(),
+                              ))
+                            else
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildKPICard(
+                                      'Active Users',
+                                      '${_reportData['activeUsers'] ?? 0}',
+                                      Icons.people,
+                                      AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: _buildKPICard(
+                                      'Active Vets',
+                                      '${_reportData['activeVets'] ?? 0}',
+                                      Icons.medical_services,
+                                      AppTheme.successColor,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: _buildKPICard(
+                                      'Scheduled',
+                                      '${(_reportData['appointmentFunnel'] as Map?)?['scheduled'] ?? 0}',
+                                      Icons.calendar_today,
+                                      Colors.blue,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: _buildKPICard(
+                                      'Completed',
+                                      '${(_reportData['appointmentFunnel'] as Map?)?['completed'] ?? 0}',
+                                      Icons.check_circle,
+                                      Colors.green,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: _buildKPICard(
+                                      'Cancelled',
+                                      '${(_reportData['appointmentFunnel'] as Map?)?['cancelled'] ?? 0}',
+                                      Icons.cancel,
+                                      Colors.red,
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                            const SizedBox(height: 24),
+
+                            // Appointment Funnel
+                            Card(
+                              child: Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.timeline, color: AppTheme.primaryColor),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Appointment Funnel',
+                                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 24),
+                                    _buildFunnelVisualization(
+                                      _reportData['appointmentFunnel'] as Map<String, dynamic>? ?? {},
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 24),
+
+                            // Top Feedback Categories and Cancellation Reasons
+                            Row(
+                              children: [
+                                // Top Feedback Categories
+                                Expanded(
+                                  child: Card(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(24),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.feedback, color: AppTheme.primaryColor),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                'Top Feedback Categories',
+                                                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 24),
+                                          _buildCategoryList(
+                                            _reportData['topFeedbackCategories'] as Map<String, int>? ?? {},
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                // Cancellation Reasons
+                                Expanded(
+                                  child: Card(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(24),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.cancel, color: Colors.red),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                'Cancellation Reasons',
+                                                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 24),
+                                          _buildReasonList(
+                                            _reportData['cancellationReasons'] as Map<String, int>? ?? {},
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       );
@@ -331,6 +611,204 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildKPICard(String title, String value, IconData icon, Color color) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 32),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFunnelVisualization(Map<String, dynamic> funnel) {
+    final total = funnel['total'] ?? 1;
+    final scheduled = (funnel['scheduled'] ?? 0) as int;
+    final completed = (funnel['completed'] ?? 0) as int;
+    final cancelled = (funnel['cancelled'] ?? 0) as int;
+
+    return Column(
+      children: [
+        _buildFunnelBar('Scheduled', scheduled, total, Colors.blue),
+        const SizedBox(height: 8),
+        _buildFunnelBar('Completed', completed, total, Colors.green),
+        const SizedBox(height: 8),
+        _buildFunnelBar('Cancelled', cancelled, total, Colors.red),
+      ],
+    );
+  }
+
+  Widget _buildFunnelBar(String label, int value, int total, Color color) {
+    final percentage = total > 0 ? (value / total * 100) : 0.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label),
+            Text(
+              '$value (${percentage.toStringAsFixed(1)}%)',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: total > 0 ? value / total : 0,
+            minHeight: 24,
+            backgroundColor: color.withOpacity(0.1),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryList(Map<String, int> categories) {
+    if (categories.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.0),
+          child: Text('No feedback categories found'),
+        ),
+      );
+    }
+
+    final entries = categories.entries.toList();
+    final maxCount = entries.isNotEmpty ? entries.first.value : 1;
+
+    return Column(
+      children: entries.take(5).map((entry) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: Text(
+                  entry.key,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: entry.value / maxCount,
+                    minHeight: 20,
+                    backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 40,
+                child: Text(
+                  '${entry.value}',
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildReasonList(Map<String, int> reasons) {
+    if (reasons.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.0),
+          child: Text('No cancellation reasons found'),
+        ),
+      );
+    }
+
+    final entries = reasons.entries.toList();
+    final maxCount = entries.isNotEmpty ? entries.first.value : 1;
+
+    return Column(
+      children: entries.take(5).map((entry) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: Text(
+                  entry.key.isEmpty ? 'Not specified' : entry.key,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: entry.value / maxCount,
+                    minHeight: 20,
+                    backgroundColor: Colors.red.withOpacity(0.1),
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.red),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 40,
+                child: Text(
+                  '${entry.value}',
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 

@@ -10,10 +10,12 @@ import 'package:furever_healthy_admin/screens/analytics_screen.dart';
 import 'package:furever_healthy_admin/screens/pet_breeds_screen.dart';
 import 'package:furever_healthy_admin/screens/settings_screen.dart';
 import 'package:furever_healthy_admin/screens/feedbacks_screen.dart';
-import 'package:furever_healthy_admin/screens/ratings_screen.dart';
 import 'package:furever_healthy_admin/screens/community_screen.dart';
 import 'package:furever_healthy_admin/screens/user_detail_screen.dart';
 import 'package:furever_healthy_admin/screens/vet_detail_screen.dart';
+import 'package:furever_healthy_admin/screens/admin_management_screen.dart';
+import 'package:furever_healthy_admin/screens/contents_screen.dart';
+import 'package:furever_healthy_admin/screens/content_editor_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -79,11 +81,6 @@ class AppRouter {
         builder: (context, state) => const FeedbacksScreen(),
       ),
       GoRoute(
-        path: '/ratings',
-        name: 'ratings',
-        builder: (context, state) => const RatingsScreen(),
-      ),
-      GoRoute(
         path: '/community',
         name: 'community',
         builder: (context, state) => const CommunityScreen(),
@@ -102,6 +99,29 @@ class AppRouter {
         builder: (context, state) {
           final vetId = state.pathParameters['vetId']!;
           return VetDetailScreen(vetId: vetId);
+        },
+      ),
+      GoRoute(
+        path: '/admin-management',
+        name: 'admin-management',
+        builder: (context, state) => const AdminManagementScreen(),
+      ),
+      GoRoute(
+        path: '/contents',
+        name: 'contents',
+        builder: (context, state) => const ContentsScreen(),
+      ),
+      GoRoute(
+        path: '/contents/new',
+        name: 'content-new',
+        builder: (context, state) => const ContentEditorScreen(),
+      ),
+      GoRoute(
+        path: '/contents/:contentId/edit',
+        name: 'content-edit',
+        builder: (context, state) {
+          final contentId = state.pathParameters['contentId']!;
+          return ContentEditorScreen(contentId: contentId);
         },
       ),
     ],

@@ -15,6 +15,8 @@ class UsersScreen extends StatefulWidget {
 class _UsersScreenState extends State<UsersScreen> {
   String _searchQuery = '';
   String _statusFilter = 'all';
+  bool _showDeleted = false;
+  String _sortBy = 'name'; // 'name', 'email', 'joinDate', 'status'
   
   // Scroll controllers for proper scroll bar control
   final ScrollController _verticalScrollController = ScrollController();
@@ -27,17 +29,54 @@ class _UsersScreenState extends State<UsersScreen> {
     super.dispose();
   }
 
-  List<QueryDocumentSnapshot<Map<String, dynamic>>> _applyFilters(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
-    return docs.where((doc) {
-      final data = doc.data();
+  List<DocumentSnapshot> _applyFilters(List<DocumentSnapshot> docs) {
+    var filtered = docs.where((doc) {
+      final data = doc.data() as Map<String, dynamic>? ?? {};
       final name = (data['name'] ?? '').toString();
       final email = (data['email'] ?? '').toString();
       final status = (data['status'] ?? '').toString();
+      final deleted = data['deleted'] ?? false;
+      
       final matchesSearch = name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           email.toLowerCase().contains(_searchQuery.toLowerCase());
       final matchesStatus = _statusFilter == 'all' || status == _statusFilter;
-      return matchesSearch && matchesStatus;
+      final matchesDeleted = _showDeleted ? true : !deleted;
+      
+      return matchesSearch && matchesStatus && matchesDeleted;
     }).toList();
+
+    // Apply sorting
+    filtered.sort((a, b) {
+      final aData = a.data() as Map<String, dynamic>? ?? {};
+      final bData = b.data() as Map<String, dynamic>? ?? {};
+      
+      switch (_sortBy) {
+        case 'email':
+          final aEmail = (aData['email'] ?? '').toString();
+          final bEmail = (bData['email'] ?? '').toString();
+          return aEmail.compareTo(bEmail);
+        case 'joinDate':
+          final aDate = aData['joinDate'];
+          final bDate = bData['joinDate'];
+          if (aDate == null && bDate == null) return 0;
+          if (aDate == null) return 1;
+          if (bDate == null) return -1;
+          final aTimestamp = aDate is Timestamp ? aDate : Timestamp.now();
+          final bTimestamp = bDate is Timestamp ? bDate : Timestamp.now();
+          return bTimestamp.compareTo(aTimestamp); // Descending (newest first)
+        case 'status':
+          final aStatus = (aData['status'] ?? '').toString();
+          final bStatus = (bData['status'] ?? '').toString();
+          return aStatus.compareTo(bStatus);
+        case 'name':
+        default:
+          final aName = (aData['name'] ?? '').toString();
+          final bName = (bData['name'] ?? '').toString();
+          return aName.compareTo(bName);
+      }
+    });
+    
+    return filtered;
   }
 
   void _viewUserDetails(BuildContext context, String userId, Map<String, dynamic> userData) {
@@ -508,55 +547,320 @@ class _UsersScreenState extends State<UsersScreen> {
     );
   }
 
+  void _suspendUser(BuildContext context, String userId, String userName) {
+    final passwordController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.block, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Suspend User'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Are you sure you want to suspend $userName?'),
+            const SizedBox(height: 8),
+            const Text(
+              'Suspended users will not be able to access their accounts.',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              decoration: const InputDecoration(
+                labelText: 'Enter your admin password to confirm',
+                hintText: 'Type your admin password',
+                prefixIcon: Icon(Icons.lock),
+              ),
+              obscureText: true,
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              passwordController.dispose();
+              Navigator.pop(context);
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              
+              if (passwordController.text.isEmpty) {
+                scaffoldMessenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Please enter your admin password'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              if (!isPasswordValid) {
+                scaffoldMessenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Invalid admin password'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                passwordController.clear();
+                return;
+              }
+              
+              try {
+                await DatabaseService.suspendUser(userId);
+                if (mounted) {
+                  passwordController.dispose();
+                  Navigator.pop(context);
+                  scaffoldMessenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('User suspended successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  passwordController.dispose();
+                  Navigator.pop(context);
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Error suspending user: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.block),
+            label: const Text('Suspend'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _unsuspendUser(BuildContext context, String userId, String userName) {
+    final passwordController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 8),
+            Text('Unsuspend User'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Are you sure you want to unsuspend $userName?'),
+            const SizedBox(height: 8),
+            const Text(
+              'The user will regain access to their account.',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              decoration: const InputDecoration(
+                labelText: 'Enter your admin password to confirm',
+                hintText: 'Type your admin password',
+                prefixIcon: Icon(Icons.lock),
+              ),
+              obscureText: true,
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              passwordController.dispose();
+              Navigator.pop(context);
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              
+              if (passwordController.text.isEmpty) {
+                scaffoldMessenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Please enter your admin password'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              if (!isPasswordValid) {
+                scaffoldMessenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Invalid admin password'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                passwordController.clear();
+                return;
+              }
+              
+              try {
+                await DatabaseService.unsuspendUser(userId);
+                if (mounted) {
+                  passwordController.dispose();
+                  Navigator.pop(context);
+                  scaffoldMessenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('User unsuspended successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  passwordController.dispose();
+                  Navigator.pop(context);
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Error unsuspending user: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.check_circle),
+            label: const Text('Unsuspend'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _deleteUser(BuildContext context, String userId, String userName) {
     final passwordController = TextEditingController();
     
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete User'),
+        title: const Row(
+          children: [
+            Icon(Icons.delete, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Delete User'),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Are you sure you want to delete $userName?'),
+            const SizedBox(height: 8),
+            const Text(
+              'This will soft delete the user. The user account will be hidden but data will be retained.',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+              ),
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: passwordController,
               decoration: const InputDecoration(
-                labelText: 'Enter password to confirm',
-                hintText: 'Type your password',
+                labelText: 'Enter your admin password to confirm',
+                hintText: 'Type your admin password',
+                prefixIcon: Icon(Icons.lock),
               ),
               obscureText: true,
+              autofocus: true,
             ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              passwordController.dispose();
+              Navigator.pop(context);
+            },
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
+          ElevatedButton.icon(
             onPressed: () async {
               final scaffoldMessenger = ScaffoldMessenger.of(context);
+              
               if (passwordController.text.isEmpty) {
                 scaffoldMessenger.showSnackBar(
-                  const SnackBar(content: Text('Please enter your password')),
+                  const SnackBar(
+                    content: Text('Please enter your admin password'),
+                    backgroundColor: Colors.red,
+                  ),
                 );
                 return;
               }
               
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              if (!isPasswordValid) {
+                scaffoldMessenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Invalid admin password'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                passwordController.clear();
+                return;
+              }
+              
               try {
-                await DatabaseService.deleteUser(userId);
+                await DatabaseService.softDeleteUser(userId);
                 if (mounted) {
+                  passwordController.dispose();
                   Navigator.pop(context);
                   scaffoldMessenger.showSnackBar(
-                    const SnackBar(content: Text('User deleted successfully')),
+                    const SnackBar(
+                      content: Text('User deleted successfully'),
+                      backgroundColor: Colors.green,
+                    ),
                   );
                 }
               } catch (e) {
                 if (mounted) {
+                  passwordController.dispose();
+                  Navigator.pop(context);
                   scaffoldMessenger.showSnackBar(
-                    SnackBar(content: Text('Error deleting user: $e')),
+                    SnackBar(
+                      content: Text('Error deleting user: $e'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               }
@@ -565,7 +869,8 @@ class _UsersScreenState extends State<UsersScreen> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Delete'),
+            icon: const Icon(Icons.delete),
+            label: const Text('Delete'),
           ),
         ],
       ),
@@ -817,6 +1122,7 @@ class _UsersScreenState extends State<UsersScreen> {
                                       items: const [
                                         DropdownMenuItem(value: 'all', child: Text('All')),
                                         DropdownMenuItem(value: 'active', child: Text('Active')),
+                                        DropdownMenuItem(value: 'suspended', child: Text('Suspended')),
                                         DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
                                         DropdownMenuItem(value: 'dormant', child: Text('Dormant')),
                                       ],
@@ -826,6 +1132,47 @@ class _UsersScreenState extends State<UsersScreen> {
                                         });
                                       },
                                     ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  
+                                  // Sort By
+                                  SizedBox(
+                                    width: 150,
+                                    child: DropdownButtonFormField<String>(
+                                      value: _sortBy,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Sort By',
+                                        border: InputBorder.none,
+                                      ),
+                                      items: const [
+                                        DropdownMenuItem(value: 'name', child: Text('Name')),
+                                        DropdownMenuItem(value: 'email', child: Text('Email')),
+                                        DropdownMenuItem(value: 'joinDate', child: Text('Join Date')),
+                                        DropdownMenuItem(value: 'status', child: Text('Status')),
+                                      ],
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _sortBy = value!;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  
+                                  // Show Deleted Toggle
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Checkbox(
+                                        value: _showDeleted,
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _showDeleted = value ?? false;
+                                          });
+                                        },
+                                      ),
+                                      const Text('Show Deleted'),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -838,11 +1185,8 @@ class _UsersScreenState extends State<UsersScreen> {
                         // Users Table
                         Expanded(
                           child: Card(
-                            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                              stream: DatabaseService.users.orderBy('name').withConverter<Map<String, dynamic>>(
-                                fromFirestore: (snap, _) => snap.data() ?? <String, dynamic>{},
-                                toFirestore: (value, _) => value,
-                              ).snapshots(),
+                            child: StreamBuilder<QuerySnapshot>(
+                              stream: DatabaseService.getUsersStream(includeDeleted: _showDeleted),
                               builder: (context, snapshot) {
                                 if (snapshot.connectionState == ConnectionState.waiting) {
                                   return const Center(child: CircularProgressIndicator());
@@ -889,7 +1233,7 @@ class _UsersScreenState extends State<UsersScreen> {
                                                 DataColumn(label: Text('Actions')),
                                               ],
                                               rows: filtered.map((doc) {
-                                                final data = doc.data();
+                                                final data = doc.data() as Map<String, dynamic>? ?? {};
                                                 final name = (data['name'] ?? '').toString();
                                                 final email = (data['email'] ?? '').toString();
                                                 final phone = (data['phone'] ?? '').toString();
@@ -1045,16 +1389,51 @@ class _UsersScreenState extends State<UsersScreen> {
                                                             ),
                                                             padding: EdgeInsets.zero,
                                                           ),
-                                                          IconButton(
-                                                            onPressed: () => _deleteUser(context, doc.id, name),
-                                                            icon: const Icon(Icons.delete, size: 16),
-                                                            tooltip: 'Delete',
-                                                            constraints: const BoxConstraints(
-                                                              minWidth: 24,
-                                                              minHeight: 24,
-                                                            ),
-                                                            padding: EdgeInsets.zero,
-                                                          ),
+                                          IconButton(
+                                            onPressed: () => _sendPasswordResetEmail(context, email, name),
+                                            icon: const Icon(Icons.lock_reset, size: 16),
+                                            tooltip: 'Send Password Reset Email',
+                                            color: Colors.orange,
+                                            constraints: const BoxConstraints(
+                                              minWidth: 24,
+                                              minHeight: 24,
+                                            ),
+                                            padding: EdgeInsets.zero,
+                                          ),
+                                          if (status == 'suspended')
+                                            IconButton(
+                                              onPressed: () => _unsuspendUser(context, doc.id, name),
+                                              icon: const Icon(Icons.check_circle, size: 16),
+                                              tooltip: 'Unsuspend',
+                                              color: Colors.green,
+                                              constraints: const BoxConstraints(
+                                                minWidth: 24,
+                                                minHeight: 24,
+                                              ),
+                                              padding: EdgeInsets.zero,
+                                            )
+                                          else
+                                            IconButton(
+                                              onPressed: () => _suspendUser(context, doc.id, name),
+                                              icon: const Icon(Icons.block, size: 16),
+                                              tooltip: 'Suspend',
+                                              color: Colors.orange,
+                                              constraints: const BoxConstraints(
+                                                minWidth: 24,
+                                                minHeight: 24,
+                                              ),
+                                              padding: EdgeInsets.zero,
+                                            ),
+                                          IconButton(
+                                            onPressed: () => _deleteUser(context, doc.id, name),
+                                            icon: const Icon(Icons.delete, size: 16),
+                                            tooltip: 'Delete',
+                                            constraints: const BoxConstraints(
+                                              minWidth: 24,
+                                              minHeight: 24,
+                                            ),
+                                            padding: EdgeInsets.zero,
+                                          ),
                                                         ],
                                                       ),
                                                     ),
