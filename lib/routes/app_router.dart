@@ -16,6 +16,7 @@ import 'package:furever_healthy_admin/screens/vet_detail_screen.dart';
 import 'package:furever_healthy_admin/screens/admin_management_screen.dart';
 import 'package:furever_healthy_admin/screens/contents_screen.dart';
 import 'package:furever_healthy_admin/screens/content_editor_screen.dart';
+import 'package:furever_healthy_admin/screens/payment_tracker_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -123,6 +124,11 @@ class AppRouter {
           final contentId = state.pathParameters['contentId']!;
           return ContentEditorScreen(contentId: contentId);
         },
+      ),
+      GoRoute(
+        path: '/payment-tracker',
+        name: 'payment-tracker',
+        builder: (context, state) => const PaymentTrackerScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

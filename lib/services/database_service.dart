@@ -22,8 +22,11 @@ class DatabaseService {
   // Analytics Collection
   static CollectionReference get analytics => _firestore.collection('analytics');
   
-  // Feedbacks Collection
+  // Feedbacks Collection (system feedbacks)
   static CollectionReference get feedbacks => _firestore.collection('feedbacks');
+  
+  // Feedback Collection (user feedbacks to vets - singular)
+  static CollectionReference get feedback => _firestore.collection('feedback');
   
   // Ratings Collection
   static CollectionReference get ratings => _firestore.collection('ratings');
@@ -46,13 +49,21 @@ class DatabaseService {
   // Contents Collection
   static CollectionReference get contents => _firestore.collection('contents');
 
+  // Payments Collection
+  static CollectionReference get payments => _firestore.collection('payment');
+
   // User Management
   static Future<DocumentSnapshot> getUser(String userId) async {
     return await users.doc(userId).get();
   }
 
   static Future<void> createUser(Map<String, dynamic> userData) async {
-    await users.add(userData);
+    // Set default userType to 'regular' if not provided
+    final dataWithDefaults = Map<String, dynamic>.from(userData);
+    if (!dataWithDefaults.containsKey('userType')) {
+      dataWithDefaults['userType'] = 'regular';
+    }
+    await users.add(dataWithDefaults);
   }
 
   static Future<void> updateUser(String userId, Map<String, dynamic> userData) async {
@@ -99,7 +110,12 @@ class DatabaseService {
   }
 
   static Future<void> createVet(Map<String, dynamic> vetData) async {
-    await vets.add(vetData);
+    // Set default userType to 'regular' if not provided
+    final dataWithDefaults = Map<String, dynamic>.from(vetData);
+    if (!dataWithDefaults.containsKey('userType')) {
+      dataWithDefaults['userType'] = 'regular';
+    }
+    await vets.add(dataWithDefaults);
   }
 
   static Future<void> updateVet(String vetId, Map<String, dynamic> vetData) async {
@@ -384,6 +400,22 @@ class DatabaseService {
 
   static Stream<QuerySnapshot> getCommunityPostsStream() {
     return community.orderBy('createdAt', descending: true).snapshots();
+  }
+
+  // Feedback to Vets Management
+  static Stream<QuerySnapshot> getFeedbackToVetsStream() {
+    return feedback.orderBy('date', descending: true).snapshots();
+  }
+
+  static Future<void> deleteFeedbackToVet(String feedbackId) async {
+    await feedback.doc(feedbackId).delete();
+  }
+
+  static Future<void> hideFeedbackToVet(String feedbackId, bool isHidden) async {
+    await feedback.doc(feedbackId).update({
+      'isHidden': isHidden,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   // Community Moderation
@@ -780,6 +812,28 @@ class DatabaseService {
       query = query.orderBy('updatedAt', descending: true);
     }
     return query.snapshots();
+  }
+
+  // Payment Management
+  static Stream<QuerySnapshot> getPaymentsStream() {
+    // Use submissionTime for ordering, fallback to createdAt if submissionTime doesn't exist
+    return payments.orderBy('submissionTime', descending: true).snapshots();
+  }
+
+  static Future<void> updatePaymentStatus(String paymentId, String status, {String? adminId}) async {
+    final updateData = <String, dynamic>{
+      'status': status, // Status should be "Pending", "Approved", or "Rejected"
+    };
+    
+    if (adminId != null) {
+      updateData['adminVerifiedBy'] = adminId;
+    }
+    
+    await payments.doc(paymentId).update(updateData);
+  }
+
+  static Future<DocumentSnapshot> getPayment(String paymentId) async {
+    return await payments.doc(paymentId).get();
   }
 }
 

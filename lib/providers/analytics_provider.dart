@@ -59,6 +59,7 @@ class AnalyticsProvider extends ChangeNotifier {
         firestore.collection('vets').get(), // for avg rating, premiumVets
         firestore.collection('pets').get(), // for dog/cat split
         firestore.collection('petBreeds').get(), // for top breeds and count
+        firestore.collection('appointments').get(), // for appointment trends
       ]);
 
       final totalUsers = results[0] as int;
@@ -68,6 +69,7 @@ class AnalyticsProvider extends ChangeNotifier {
       final vetsSnap = results[4] as QuerySnapshot;
       final petsSnap = results[5] as QuerySnapshot;
       final breedsSnap = results[6] as QuerySnapshot;
+      final appointmentsSnap = results[7] as QuerySnapshot;
 
       // premium users (optional flag isPremium on users). If not present, 0.
       int premiumUsers = 0;
@@ -116,6 +118,122 @@ class AnalyticsProvider extends ChangeNotifier {
         };
       }).toList();
 
+      // Calculate appointment trends from actual appointments
+      final Map<String, int> appointmentTrends = {};
+      final now = DateTime.now();
+      
+      // Group appointments by date (last 30 days)
+      for (int i = 29; i >= 0; i--) {
+        final date = now.subtract(Duration(days: i));
+        final dateKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+        appointmentTrends[dateKey] = 0;
+      }
+      
+      // Count appointments per day
+      int appointmentsWithoutDate = 0;
+      for (final doc in appointmentsSnap.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        
+        // Try multiple possible date fields
+        dynamic dateValue = data['createdAt'] ?? data['date'] ?? data['appointmentDate'] ?? data['created'];
+        
+        DateTime appointmentDate = now; // Default to today
+        bool hasValidDate = false;
+        
+        if (dateValue != null) {
+          if (dateValue is Timestamp) {
+            appointmentDate = dateValue.toDate();
+            hasValidDate = true;
+          } else if (dateValue is DateTime) {
+            appointmentDate = dateValue;
+            hasValidDate = true;
+          }
+        }
+        
+        // If no valid date found, use today's date as fallback (so appointment is still counted)
+        if (!hasValidDate) {
+          appointmentsWithoutDate++;
+        }
+        
+        final dateKey = '${appointmentDate.year}-${appointmentDate.month.toString().padLeft(2, '0')}-${appointmentDate.day.toString().padLeft(2, '0')}';
+        
+        // Count the appointment for its date (or today if no date)
+        if (appointmentTrends.containsKey(dateKey)) {
+          appointmentTrends[dateKey] = (appointmentTrends[dateKey] ?? 0) + 1;
+        } else {
+          // If outside the 30-day window, add it to today's count to ensure it's visible
+          final todayKey = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+          if (appointmentTrends.containsKey(todayKey)) {
+            appointmentTrends[todayKey] = (appointmentTrends[todayKey] ?? 0) + 1;
+          }
+        }
+      }
+      
+      // Debug: log if we found appointments without dates
+      if (appointmentsWithoutDate > 0) {
+        debugPrint('Found $appointmentsWithoutDate appointments without date fields');
+      }
+      
+      // Sort and ensure we have a continuous 30-day range ending today
+      final sortedKeys = appointmentTrends.keys.toList()..sort();
+      if (sortedKeys.isNotEmpty) {
+        // Get the most recent 30 days
+        final last30Days = <String, int>{};
+        final today = now;
+        for (int i = 29; i >= 0; i--) {
+          final date = today.subtract(Duration(days: i));
+          final dateKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+          last30Days[dateKey] = appointmentTrends[dateKey] ?? 0;
+        }
+        appointmentTrends.clear();
+        appointmentTrends.addAll(last30Days);
+      }
+
+      // Calculate user growth trends (last 30 days)
+      final Map<String, int> userGrowth = {};
+      final usersSnap = await firestore.collection('users').get();
+      
+      for (int i = 29; i >= 0; i--) {
+        final date = now.subtract(Duration(days: i));
+        final dateKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+        userGrowth[dateKey] = 0;
+      }
+      
+      // Count users per day based on joinDate
+      for (final doc in usersSnap.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final joinDate = data['joinDate'];
+        if (joinDate != null) {
+          DateTime userDate;
+          if (joinDate is Timestamp) {
+            userDate = joinDate.toDate();
+          } else if (joinDate is DateTime) {
+            userDate = joinDate;
+          } else {
+            continue;
+          }
+          
+          final dateKey = '${userDate.year}-${userDate.month.toString().padLeft(2, '0')}-${userDate.day.toString().padLeft(2, '0')}';
+          if (userGrowth.containsKey(dateKey)) {
+            userGrowth[dateKey] = (userGrowth[dateKey] ?? 0) + 1;
+          }
+        }
+      }
+      
+      // Calculate cumulative user growth
+      int cumulativeUsers = 0;
+      final userGrowthKeys = userGrowth.keys.toList()..sort();
+      for (final key in userGrowthKeys) {
+        cumulativeUsers += userGrowth[key] ?? 0;
+        userGrowth[key] = cumulativeUsers;
+      }
+      
+      // If no users found, at least show the total users count on today's date
+      if (cumulativeUsers == 0 && totalUsers > 0) {
+        final todayKey = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+        userGrowth[todayKey] = totalUsers;
+      }
+
       // Build analytics data, preferring persisted values for charts if available
       final persistedMap = persisted;
       _analyticsData = AnalyticsData(
@@ -129,12 +247,16 @@ class AnalyticsProvider extends ChangeNotifier {
         petBreeds: breedsSnap.docs.length,
         petCategories: petCategories,
         topBreeds: persistedMap['topBreeds'] is List ? List<Map<String, dynamic>>.from(persistedMap['topBreeds']) : topBreeds,
-        userGrowth: persistedMap['userGrowth'] is Map<String, dynamic>
-            ? Map<String, int>.from((persistedMap['userGrowth'] as Map).map((k, v) => MapEntry(k.toString(), (v as num).toInt())))
-            : <String, int>{},
-        appointmentTrends: persistedMap['appointmentTrends'] is Map<String, dynamic>
-            ? Map<String, int>.from((persistedMap['appointmentTrends'] as Map).map((k, v) => MapEntry(k.toString(), (v as num).toInt())))
-            : <String, int>{},
+        userGrowth: userGrowth.isNotEmpty 
+            ? userGrowth
+            : (persistedMap['userGrowth'] is Map<String, dynamic>
+                ? Map<String, int>.from((persistedMap['userGrowth'] as Map).map((k, v) => MapEntry(k.toString(), (v as num).toInt())))
+                : <String, int>{}),
+        appointmentTrends: appointmentTrends.isNotEmpty
+            ? appointmentTrends
+            : (persistedMap['appointmentTrends'] is Map<String, dynamic>
+                ? Map<String, int>.from((persistedMap['appointmentTrends'] as Map).map((k, v) => MapEntry(k.toString(), (v as num).toInt())))
+                : <String, int>{}),
       );
     } catch (e) {
       _error = 'Failed to load analytics data: $e';

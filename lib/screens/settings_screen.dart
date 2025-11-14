@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:furever_healthy_admin/theme/app_theme.dart';
 import 'package:furever_healthy_admin/widgets/sidebar.dart';
 import 'package:furever_healthy_admin/services/database_service.dart';
-import 'package:furever_healthy_admin/providers/auth_provider.dart';
-import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
@@ -52,9 +50,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int? _notificationThrottlePerHour = 10;
   
   // Performance/Privacy
-  bool? _featureA = true;
-  bool? _featureB = true;
-  bool? _featureC = false;
   int? _attachmentSizeLimitMB = 10;
 
   @override
@@ -208,11 +203,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               child: Row(
                                 children: [
-                                  Expanded(
+                                  const Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Text(
+                                        Text(
                                           'Change Admin Password',
                                           style: TextStyle(
                                             fontSize: 16,
@@ -220,8 +215,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                             color: AppTheme.textPrimary,
                                           ),
                                         ),
-                                        const SizedBox(height: 4),
-                                        const Text(
+                                        SizedBox(height: 4),
+                                        Text(
                                           'Update your admin account password',
                                           style: TextStyle(
                                             fontSize: 14,
@@ -355,29 +350,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         
                         const SizedBox(height: 24),
                         
-                        // Notification Management
+                        // Notification Throttle Settings
                         _buildSettingsSection(
-                          'Notification Management',
+                          'Notification Throttle Settings',
                           Icons.notifications_active,
                           [
-                            ElevatedButton.icon(
-                              onPressed: () => _showNotificationComposer(context),
-                              icon: const Icon(Icons.add),
-                              label: const Text('Compose Announcement'),
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton.icon(
-                              onPressed: () => _showBreedTipsComposer(context),
-                              icon: const Icon(Icons.tips_and_updates),
-                              label: const Text('Compose Breed-Specific Tips'),
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton.icon(
-                              onPressed: () => _showMaintenanceNoticeComposer(context),
-                              icon: const Icon(Icons.build),
-                              label: const Text('Create Maintenance Notice'),
-                            ),
-                            const SizedBox(height: 24),
                             _buildSliderSetting(
                               'Max Notifications per Day',
                               'Limit notifications sent per day',
@@ -404,25 +381,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           'Performance/Privacy Settings',
                           Icons.settings_applications,
                           [
-                            _buildSwitchSetting(
-                              'Enable Feature A',
-                              'Toggle specific feature',
-                              _featureA ?? false,
-                              (value) => setState(() => _featureA = value),
-                            ),
-                            _buildSwitchSetting(
-                              'Enable Feature B',
-                              'Toggle specific feature',
-                              _featureB ?? false,
-                              (value) => setState(() => _featureB = value),
-                            ),
-                            _buildSwitchSetting(
-                              'Enable Feature C',
-                              'Toggle specific feature',
-                              _featureC ?? false,
-                              (value) => setState(() => _featureC = value),
-                            ),
-                            const SizedBox(height: 16),
                             _buildSliderSetting(
                               'Data Retention ($_dataRetentionDays days)',
                               'How long to keep data before cleanup',
@@ -874,506 +832,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showNotificationComposer(BuildContext context) {
-    final titleController = TextEditingController();
-    final contentController = TextEditingController();
-    String targetAudience = 'all';
-    DateTime? scheduledDate;
-    bool sendNow = true;
-
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.6,
-          constraints: const BoxConstraints(maxWidth: 700),
-          padding: const EdgeInsets.all(24),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.notifications, color: AppTheme.primaryColor),
-                    SizedBox(width: 8),
-                    Text(
-                      'Compose Announcement',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Title *',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: contentController,
-                  decoration: const InputDecoration(
-                    labelText: 'Content *',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 5,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: targetAudience,
-                  decoration: const InputDecoration(
-                    labelText: 'Target Audience',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'all', child: Text('All Users')),
-                    DropdownMenuItem(value: 'premium', child: Text('Premium Users')),
-                  ],
-                  onChanged: (value) => targetAudience = value!,
-                ),
-                const SizedBox(height: 16),
-                StatefulBuilder(
-                  builder: (context, setDialogState) => CheckboxListTile(
-                    title: const Text('Send Now'),
-                    value: sendNow,
-                    onChanged: (value) => setDialogState(() => sendNow = value ?? true),
-                  ),
-                ),
-                StatefulBuilder(
-                  builder: (context, setDialogState) {
-                    return sendNow
-                        ? const SizedBox.shrink()
-                        : Column(
-                            children: [
-                              const SizedBox(height: 8),
-                              ElevatedButton.icon(
-                                onPressed: () async {
-                                  final date = await showDatePicker(
-                                    context: context,
-                                    firstDate: DateTime.now(),
-                                    lastDate: DateTime.now().add(const Duration(days: 365)),
-                                  );
-                                  if (date != null) {
-                                    final time = await showTimePicker(
-                                      context: context,
-                                      initialTime: TimeOfDay.now(),
-                                    );
-                                    if (time != null) {
-                                      setDialogState(() {
-                                        scheduledDate = DateTime(
-                                          date.year,
-                                          date.month,
-                                          date.day,
-                                          time.hour,
-                                          time.minute,
-                                        );
-                                      });
-                                    }
-                                  }
-                                },
-                                icon: const Icon(Icons.calendar_today),
-                                label: Text(
-                                  scheduledDate != null
-                                      ? DateFormat('MMM d, yyyy h:mm a').format(scheduledDate!)
-                                      : 'Schedule Date & Time',
-                                ),
-                              ),
-                            ],
-                          );
-                  },
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel'),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        if (titleController.text.isEmpty || contentController.text.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please fill in all required fields'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-
-                        try {
-                          final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                          await DatabaseService.createNotification({
-                            'title': titleController.text,
-                            'content': contentController.text,
-                            'type': 'announcement',
-                            'targetAudience': targetAudience,
-                            'status': sendNow ? 'sent' : 'scheduled',
-                            'scheduledDate': scheduledDate != null
-                                ? Timestamp.fromDate(scheduledDate!)
-                                : null,
-                            'createdBy': authProvider.userEmail ?? 'admin',
-                            'createdAt': FieldValue.serverTimestamp(),
-                          });
-
-                          if (mounted) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Announcement created successfully'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Error creating announcement: $e'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.send),
-                      label: const Text('Send'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showBreedTipsComposer(BuildContext context) {
-    final titleController = TextEditingController();
-    final contentController = TextEditingController();
-    String selectedBreed = '';
-
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.6,
-          constraints: const BoxConstraints(maxWidth: 700),
-          padding: const EdgeInsets.all(24),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.tips_and_updates, color: AppTheme.primaryColor),
-                    SizedBox(width: 8),
-                    Text(
-                      'Compose Breed-Specific Tips',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Title *',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: contentController,
-                  decoration: const InputDecoration(
-                    labelText: 'Content/Tips *',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 5,
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'Breed Key (optional)',
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (value) => selectedBreed = value,
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel'),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        if (titleController.text.isEmpty || contentController.text.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please fill in all required fields'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-
-                        try {
-                          final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                          await DatabaseService.createNotification({
-                            'title': titleController.text,
-                            'content': contentController.text,
-                            'type': 'breed_tips',
-                            'breedKey': selectedBreed,
-                            'status': 'sent',
-                            'createdBy': authProvider.userEmail ?? 'admin',
-                            'createdAt': FieldValue.serverTimestamp(),
-                          });
-
-                          if (mounted) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Breed tips created successfully'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Error creating breed tips: $e'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.send),
-                      label: const Text('Send'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showMaintenanceNoticeComposer(BuildContext context) {
-    final titleController = TextEditingController(text: 'System Maintenance');
-    final contentController = TextEditingController();
-    DateTime? maintenanceStart;
-    DateTime? maintenanceEnd;
-
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.6,
-          constraints: const BoxConstraints(maxWidth: 700),
-          padding: const EdgeInsets.all(24),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.build, color: Colors.orange),
-                    SizedBox(width: 8),
-                    Text(
-                      'Create Maintenance Notice',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Title *',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: contentController,
-                  decoration: const InputDecoration(
-                    labelText: 'Maintenance Details *',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 5,
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          final date = await showDatePicker(
-                            context: context,
-                            firstDate: DateTime.now(),
-                            lastDate: DateTime.now().add(const Duration(days: 365)),
-                          );
-                          if (date != null) {
-                            final time = await showTimePicker(
-                              context: context,
-                              initialTime: TimeOfDay.now(),
-                            );
-                            if (time != null) {
-                              setState(() {
-                                maintenanceStart = DateTime(
-                                  date.year,
-                                  date.month,
-                                  date.day,
-                                  time.hour,
-                                  time.minute,
-                                );
-                              });
-                            }
-                          }
-                        },
-                        icon: const Icon(Icons.access_time),
-                        label: Text(
-                          maintenanceStart != null
-                              ? 'Start: ${DateFormat('MMM d, h:mm a').format(maintenanceStart!)}'
-                              : 'Start Time',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          final date = await showDatePicker(
-                            context: context,
-                            firstDate: DateTime.now(),
-                            lastDate: DateTime.now().add(const Duration(days: 365)),
-                          );
-                          if (date != null) {
-                            final time = await showTimePicker(
-                              context: context,
-                              initialTime: TimeOfDay.now(),
-                            );
-                            if (time != null) {
-                              setState(() {
-                                maintenanceEnd = DateTime(
-                                  date.year,
-                                  date.month,
-                                  date.day,
-                                  time.hour,
-                                  time.minute,
-                                );
-                              });
-                            }
-                          }
-                        },
-                        icon: const Icon(Icons.access_time),
-                        label: Text(
-                          maintenanceEnd != null
-                              ? 'End: ${DateFormat('MMM d, h:mm a').format(maintenanceEnd!)}'
-                              : 'End Time',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel'),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        if (contentController.text.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please fill in maintenance details'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-
-                        try {
-                          final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                          await DatabaseService.createNotification({
-                            'title': titleController.text,
-                            'content': contentController.text,
-                            'type': 'maintenance',
-                            'maintenanceStart': maintenanceStart != null
-                                ? Timestamp.fromDate(maintenanceStart!)
-                                : null,
-                            'maintenanceEnd': maintenanceEnd != null
-                                ? Timestamp.fromDate(maintenanceEnd!)
-                                : null,
-                            'status': 'sent',
-                            'createdBy': authProvider.userEmail ?? 'admin',
-                            'createdAt': FieldValue.serverTimestamp(),
-                          });
-
-                          if (mounted) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Maintenance notice created successfully'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Error creating maintenance notice: $e'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.send),
-                      label: const Text('Send'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   void _showChangePasswordDialog(BuildContext context) {
     final currentPasswordController = TextEditingController();
     final newPasswordController = TextEditingController();
     final confirmPasswordController = TextEditingController();
-    bool _obscureCurrentPassword = true;
-    bool _obscureNewPassword = true;
-    bool _obscureConfirmPassword = true;
+    bool obscureCurrentPassword = true;
+    bool obscureNewPassword = true;
+    bool obscureConfirmPassword = true;
 
     showDialog(
       context: context,
@@ -1405,17 +870,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 24),
                   TextField(
                     controller: currentPasswordController,
-                    obscureText: _obscureCurrentPassword,
+                    obscureText: obscureCurrentPassword,
                     decoration: InputDecoration(
                       labelText: 'Current Password *',
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscureCurrentPassword ? Icons.visibility : Icons.visibility_off,
+                          obscureCurrentPassword ? Icons.visibility : Icons.visibility_off,
                         ),
                         onPressed: () {
                           setDialogState(() {
-                            _obscureCurrentPassword = !_obscureCurrentPassword;
+                            obscureCurrentPassword = !obscureCurrentPassword;
                           });
                         },
                       ),
@@ -1426,17 +891,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 16),
                   TextField(
                     controller: newPasswordController,
-                    obscureText: _obscureNewPassword,
+                    obscureText: obscureNewPassword,
                     decoration: InputDecoration(
                       labelText: 'New Password *',
                       prefixIcon: const Icon(Icons.lock),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscureNewPassword ? Icons.visibility : Icons.visibility_off,
+                          obscureNewPassword ? Icons.visibility : Icons.visibility_off,
                         ),
                         onPressed: () {
                           setDialogState(() {
-                            _obscureNewPassword = !_obscureNewPassword;
+                            obscureNewPassword = !obscureNewPassword;
                           });
                         },
                       ),
@@ -1447,17 +912,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 16),
                   TextField(
                     controller: confirmPasswordController,
-                    obscureText: _obscureConfirmPassword,
+                    obscureText: obscureConfirmPassword,
                     decoration: InputDecoration(
                       labelText: 'Confirm New Password *',
                       prefixIcon: const Icon(Icons.lock),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
+                          obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
                         ),
                         onPressed: () {
                           setDialogState(() {
-                            _obscureConfirmPassword = !_obscureConfirmPassword;
+                            obscureConfirmPassword = !obscureConfirmPassword;
                           });
                         },
                       ),

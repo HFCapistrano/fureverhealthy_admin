@@ -273,13 +273,15 @@ class _FeedbacksScreenState extends State<FeedbacksScreen> {
   Widget _buildTriageChip(String label, String value) {
     Color chipColor = AppTheme.primaryColor;
     if (label == 'Severity') {
-      if (value == 'critical') chipColor = Colors.red;
-      else if (value == 'high') chipColor = Colors.orange;
+      if (value == 'critical') {
+        chipColor = Colors.red;
+      } else if (value == 'high') chipColor = Colors.orange;
       else if (value == 'medium') chipColor = Colors.yellow.shade700;
       else chipColor = Colors.green;
     } else if (label == 'Status') {
-      if (value == 'closed') chipColor = Colors.grey;
-      else if (value == 'resolved') chipColor = Colors.green;
+      if (value == 'closed') {
+        chipColor = Colors.grey;
+      } else if (value == 'resolved') chipColor = Colors.green;
       else if (value == 'in_progress') chipColor = AppTheme.primaryColor;
       else chipColor = Colors.blue;
     }
@@ -628,10 +630,10 @@ class _FeedbacksScreenState extends State<FeedbacksScreen> {
                                       labelText: 'Assigned To',
                                       border: InputBorder.none,
                                     ),
-                                    items: [
-                                      const DropdownMenuItem(value: null, child: Text('All')),
+                                    items: const [
+                                      DropdownMenuItem(value: null, child: Text('All')),
                                       // In a real app, fetch admin users dynamically
-                                      const DropdownMenuItem(value: '', child: Text('Unassigned')),
+                                      DropdownMenuItem(value: '', child: Text('Unassigned')),
                                     ],
                                     onChanged: (value) {
                                       setState(() {

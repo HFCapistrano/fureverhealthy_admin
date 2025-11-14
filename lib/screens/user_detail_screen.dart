@@ -126,11 +126,11 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                                 Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    SizedBox(
+                                    const SizedBox(
                                       width: 150,
                                       child: Text(
                                         'Email',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontWeight: FontWeight.w600,
                                           color: AppTheme.textSecondary,
                                         ),

@@ -143,6 +143,13 @@ class _SidebarState extends State<Sidebar> {
                                  currentLocation.startsWith('/contents/'),
                       ),
                     ),
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.payment,
+                      title: 'Payment Tracker',
+                      route: '/payment-tracker',
+                      isActive: currentLocation == '/payment-tracker',
+                    ),
                     if (authProvider.isSuperAdmin)
                       _buildMenuItem(
                         context,

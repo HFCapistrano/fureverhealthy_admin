@@ -83,37 +83,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     }
   }
 
-  void _exportToCSV() async {
-    try {
-      final csv = await DatabaseService.exportReportsToCSV(_reportData);
-      
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Export CSV'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: SelectableText(csv),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error exporting: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -153,60 +122,55 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           ],
                         ),
                       ),
-                      Row(
-                        children: [
-                          Consumer<AnalyticsProvider>(
-                            builder: (context, provider, child) {
-                              if (provider.isLoading) {
-                                return const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                      Flexible(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.end,
+                          children: [
+                            Consumer<AnalyticsProvider>(
+                              builder: (context, provider, child) {
+                                if (provider.isLoading) {
+                                  return const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  );
+                                }
+                                return IconButton(
+                                  icon: const Icon(Icons.refresh),
+                                  onPressed: () => provider.refreshData(),
+                                  tooltip: 'Refresh Data',
                                 );
-                              }
-                              return IconButton(
-                                icon: const Icon(Icons.refresh),
-                                onPressed: () => provider.refreshData(),
-                                tooltip: 'Refresh Data',
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 16),
-                          DropdownButton<String>(
-                            value: _selectedPeriod,
-                            items: const [
-                              DropdownMenuItem(value: 'Last 7 Days', child: Text('Last 7 Days')),
-                              DropdownMenuItem(value: 'Last 30 Days', child: Text('Last 30 Days')),
-                              DropdownMenuItem(value: 'Last 90 Days', child: Text('Last 90 Days')),
-                              DropdownMenuItem(value: 'Last Year', child: Text('Last Year')),
-                            ],
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedPeriod = value!;
-                              });
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton.icon(
-                            onPressed: _selectDateRange,
-                            icon: const Icon(Icons.date_range),
-                            label: Text(
-                              _startDate != null && _endDate != null
-                                  ? '${DateFormat('MMM d').format(_startDate!)} - ${DateFormat('MMM d').format(_endDate!)}'
-                                  : 'Select Date Range',
+                              },
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton.icon(
-                            onPressed: _exportToCSV,
-                            icon: const Icon(Icons.download),
-                            label: const Text('Export CSV'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              foregroundColor: Colors.white,
+                            DropdownButton<String>(
+                              value: _selectedPeriod,
+                              items: const [
+                                DropdownMenuItem(value: 'Last 7 Days', child: Text('Last 7 Days')),
+                                DropdownMenuItem(value: 'Last 30 Days', child: Text('Last 30 Days')),
+                                DropdownMenuItem(value: 'Last 90 Days', child: Text('Last 90 Days')),
+                                DropdownMenuItem(value: 'Last Year', child: Text('Last Year')),
+                              ],
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedPeriod = value!;
+                                });
+                              },
                             ),
-                          ),
-                        ],
+                            ElevatedButton.icon(
+                              onPressed: _selectDateRange,
+                              icon: const Icon(Icons.date_range),
+                              label: Text(
+                                _startDate != null && _endDate != null
+                                    ? '${DateFormat('MMM d').format(_startDate!)} - ${DateFormat('MMM d').format(_endDate!)}'
+                                    : 'Select Date Range',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -270,7 +234,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                             // Key Metrics Row 1
                             Row(
                               children: [
-                                Expanded(
+                                Flexible(
                                   child: _buildMetricCard(
                                     title: 'Total Users',
                                     value: '${analyticsData.totalUsers}',
@@ -281,7 +245,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 16),
-                                Expanded(
+                                Flexible(
                                   child: _buildMetricCard(
                                     title: 'Premium Users',
                                     value: '${analyticsData.premiumUsers}',
@@ -292,7 +256,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 16),
-                                Expanded(
+                                Flexible(
                                   child: _buildMetricCard(
                                     title: 'Active Vets',
                                     value: '${analyticsData.activeVets}',
@@ -303,7 +267,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 16),
-                                Expanded(
+                                Flexible(
                                   child: _buildMetricCard(
                                     title: 'Premium Vets',
                                     value: '${analyticsData.premiumVets}',
@@ -321,7 +285,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                             // Key Metrics Row 2
                             Row(
                               children: [
-                                Expanded(
+                                Flexible(
                                   child: _buildMetricCard(
                                     title: 'Total Appointments',
                                     value: '${analyticsData.totalAppointments}',
@@ -332,7 +296,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 16),
-                                Expanded(
+                                Flexible(
                                   child: _buildMetricCard(
                                     title: 'Revenue',
                                     value: '\$${analyticsData.revenue.toStringAsFixed(0)}',
@@ -343,7 +307,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 16),
-                                Expanded(
+                                Flexible(
                                   child: _buildMetricCard(
                                     title: 'Avg. Rating',
                                     value: analyticsData.averageRating.toStringAsFixed(1),
@@ -354,7 +318,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 16),
-                                Expanded(
+                                Flexible(
                                   child: _buildMetricCard(
                                     title: 'Pet Breeds',
                                     value: '${analyticsData.petBreeds}',
@@ -366,243 +330,249 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                 ),
                               ],
                             ),
-                            
-                            const SizedBox(height: 24),
-                            
-                            // Charts Row
-                            Row(
-                              children: [
-                                Expanded(
-                                  flex: 2,
-                                  child: _buildChartCard(
-                                    title: 'User Growth Trend',
-                                    child: _buildUserGrowthChart(analyticsData.userGrowth),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: _buildChartCard(
-                                    title: 'Pet Categories Distribution',
-                                    child: _buildPetCategoriesChart(analyticsData.petCategories),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            
-                            const SizedBox(height: 24),
-                            
-                            // Bottom Row
-                            Row(
-                              children: [
-                                Expanded(
-                                  flex: 2,
-                                  child: _buildChartCard(
-                                    title: 'Appointment Trends',
-                                    child: _buildAppointmentTrendsChart(analyticsData.appointmentTrends),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: _buildChartCard(
-                                    title: 'Top Breeds',
-                                    child: _buildTopBreedsList(analyticsData.topBreeds),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            
-                            const SizedBox(height: 24),
-                            
-                            // Additional Insights Row
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildChartCard(
-                                    title: 'Premium vs Regular Users',
-                                    child: _buildPremiumComparisonChart(analyticsData),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: _buildChartCard(
-                                    title: 'Vet Verification Status',
-                                    child: _buildVetVerificationChart(analyticsData),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            
-                            const SizedBox(height: 48),
-                            
-                            // Divider
-                            const Divider(thickness: 2),
-                            
-                            const SizedBox(height: 48),
-                            
-                            // Reports & KPIs Section Header
-                            Text(
-                              'Reports & KPIs',
-                              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            
-                            // KPI Cards
-                            if (_isLoadingReports)
-                              const Center(child: Padding(
-                                padding: EdgeInsets.all(32.0),
-                                child: CircularProgressIndicator(),
-                              ))
-                            else
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildKPICard(
-                                      'Active Users',
-                                      '${_reportData['activeUsers'] ?? 0}',
-                                      Icons.people,
-                                      AppTheme.primaryColor,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: _buildKPICard(
-                                      'Active Vets',
-                                      '${_reportData['activeVets'] ?? 0}',
-                                      Icons.medical_services,
-                                      AppTheme.successColor,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: _buildKPICard(
-                                      'Scheduled',
-                                      '${(_reportData['appointmentFunnel'] as Map?)?['scheduled'] ?? 0}',
-                                      Icons.calendar_today,
-                                      Colors.blue,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: _buildKPICard(
-                                      'Completed',
-                                      '${(_reportData['appointmentFunnel'] as Map?)?['completed'] ?? 0}',
-                                      Icons.check_circle,
-                                      Colors.green,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: _buildKPICard(
-                                      'Cancelled',
-                                      '${(_reportData['appointmentFunnel'] as Map?)?['cancelled'] ?? 0}',
-                                      Icons.cancel,
-                                      Colors.red,
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                            const SizedBox(height: 24),
-
-                            // Appointment Funnel
-                            Card(
-                              child: Padding(
-                                padding: const EdgeInsets.all(24),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                
+                                const SizedBox(height: 24),
+                                
+                                // Charts Row
+                                Row(
                                   children: [
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.timeline, color: AppTheme.primaryColor),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Appointment Funnel',
-                                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                        ),
-                                      ],
+                                    Expanded(
+                                      flex: 2,
+                                      child: _buildChartCard(
+                                        title: 'User Growth Trend',
+                                        child: _buildUserGrowthChart(analyticsData.userGrowth),
+                                      ),
                                     ),
-                                    const SizedBox(height: 24),
-                                    _buildFunnelVisualization(
-                                      _reportData['appointmentFunnel'] as Map<String, dynamic>? ?? {},
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: _buildChartCard(
+                                        title: 'Pet Categories Distribution',
+                                        child: _buildPetCategoriesChart(analyticsData.petCategories),
+                                      ),
                                     ),
                                   ],
                                 ),
-                              ),
-                            ),
-
-                            const SizedBox(height: 24),
-
-                            // Top Feedback Categories and Cancellation Reasons
-                            Row(
-                              children: [
-                                // Top Feedback Categories
-                                Expanded(
-                                  child: Card(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(24),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              const Icon(Icons.feedback, color: AppTheme.primaryColor),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                'Top Feedback Categories',
-                                                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 24),
-                                          _buildCategoryList(
-                                            _reportData['topFeedbackCategories'] as Map<String, int>? ?? {},
-                                          ),
-                                        ],
+                                
+                                const SizedBox(height: 24),
+                                
+                                // Bottom Row
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 2,
+                                      child: _buildChartCard(
+                                        title: 'Appointment Trends',
+                                        child: _buildAppointmentTrendsChart(analyticsData.appointmentTrends),
                                       ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: _buildChartCard(
+                                        title: 'Top Breeds',
+                                        child: _buildTopBreedsList(analyticsData.topBreeds),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                
+                                const SizedBox(height: 24),
+                                
+                                // Additional Insights Row
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildChartCard(
+                                        title: 'Premium vs Regular Users',
+                                        child: _buildPremiumComparisonChart(analyticsData),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: _buildChartCard(
+                                        title: 'Vet Verification Status',
+                                        child: _buildVetVerificationChart(analyticsData),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                
+                                const SizedBox(height: 48),
+                                
+                                // Divider
+                                const Divider(thickness: 2),
+                                
+                                const SizedBox(height: 48),
+                                
+                                // Reports & KPIs Section Header
+                                Text(
+                                  'Reports & KPIs',
+                                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                
+                                // KPI Cards
+                                if (_isLoadingReports)
+                                  const Center(child: Padding(
+                                    padding: EdgeInsets.all(32.0),
+                                    child: CircularProgressIndicator(),
+                                  ))
+                                else
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: _buildKPICard(
+                                          'Active Users',
+                                          '${_reportData['activeUsers'] ?? 0}',
+                                          Icons.people,
+                                          AppTheme.primaryColor,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Flexible(
+                                        child: _buildKPICard(
+                                          'Active Vets',
+                                          '${_reportData['activeVets'] ?? 0}',
+                                          Icons.medical_services,
+                                          AppTheme.successColor,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Flexible(
+                                        child: _buildKPICard(
+                                          'Scheduled',
+                                          '${(_reportData['appointmentFunnel'] as Map?)?['scheduled'] ?? 0}',
+                                          Icons.calendar_today,
+                                          Colors.blue,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Flexible(
+                                        child: _buildKPICard(
+                                          'Completed',
+                                          '${(_reportData['appointmentFunnel'] as Map?)?['completed'] ?? 0}',
+                                          Icons.check_circle,
+                                          Colors.green,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Flexible(
+                                        child: _buildKPICard(
+                                          'Cancelled',
+                                          '${(_reportData['appointmentFunnel'] as Map?)?['cancelled'] ?? 0}',
+                                          Icons.cancel,
+                                          Colors.red,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+
+                                const SizedBox(height: 24),
+
+                                // Appointment Funnel
+                                Card(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(24),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.timeline, color: AppTheme.primaryColor),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'Appointment Funnel',
+                                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 24),
+                                        _buildFunnelVisualization(
+                                          _reportData['appointmentFunnel'] as Map<String, dynamic>? ?? {},
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 16),
-                                // Cancellation Reasons
-                                Expanded(
-                                  child: Card(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(24),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
+
+                                const SizedBox(height: 24),
+
+                                // Top Feedback Categories and Cancellation Reasons
+                                Row(
+                                  children: [
+                                    // Top Feedback Categories
+                                    Expanded(
+                                      child: Card(
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(24),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              const Icon(Icons.cancel, color: Colors.red),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                'Cancellation Reasons',
-                                                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                                      fontWeight: FontWeight.bold,
+                                              Row(
+                                                children: [
+                                                  const Icon(Icons.feedback, color: AppTheme.primaryColor),
+                                                  const SizedBox(width: 8),
+                                                  Flexible(
+                                                    child: Text(
+                                                      'Top Feedback Categories',
+                                                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                      overflow: TextOverflow.ellipsis,
                                                     ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 24),
+                                              _buildCategoryList(
+                                                _reportData['topFeedbackCategories'] as Map<String, int>? ?? {},
                                               ),
                                             ],
                                           ),
-                                          const SizedBox(height: 24),
-                                          _buildReasonList(
-                                            _reportData['cancellationReasons'] as Map<String, int>? ?? {},
-                                          ),
-                                        ],
+                                        ),
                                       ),
                                     ),
-                                  ),
+                                    const SizedBox(width: 16),
+                                    // Cancellation Reasons
+                                    Expanded(
+                                      child: Card(
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(24),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  const Icon(Icons.cancel, color: Colors.red),
+                                                  const SizedBox(width: 8),
+                                                  Flexible(
+                                                    child: Text(
+                                                      'Cancellation Reasons',
+                                                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 24),
+                                              _buildReasonList(
+                                                _reportData['cancellationReasons'] as Map<String, int>? ?? {},
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                      );
+                          );
                     },
                   ),
                 ),
@@ -616,43 +586,54 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   Widget _buildKPICard(String title, String value, IconData icon, Color color) {
     return Card(
+      clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 32),
               ),
-              child: Icon(icon, color: color, size: 32),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textSecondary,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: color,
+                    const SizedBox(height: 4),
+                    Text(
+                      value,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                        height: 1.0,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -738,7 +719,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     value: entry.value / maxCount,
                     minHeight: 20,
                     backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                    valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
                   ),
                 ),
               ),
@@ -792,7 +773,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     value: entry.value / maxCount,
                     minHeight: 20,
                     backgroundColor: Colors.red.withOpacity(0.1),
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.red),
+                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.red),
                   ),
                 ),
               ),
@@ -821,12 +802,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     required Color color,
   }) {
     return Card(
+      clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
@@ -836,19 +820,22 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   ),
                   child: Icon(icon, color: color, size: 20),
                 ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isPositive ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    change,
-                    style: TextStyle(
-                      color: isPositive ? Colors.green : Colors.red,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isPositive ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      change,
+                      style: TextStyle(
+                        color: isPositive ? Colors.green : Colors.red,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ),
@@ -860,6 +847,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
             const SizedBox(height: 4),
             Text(
@@ -867,6 +856,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: AppTheme.textSecondary,
               ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
           ],
         ),
@@ -900,20 +891,38 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   Widget _buildUserGrowthChart(Map<String, int> userGrowth) {
     // Calculate trend from userGrowth data
-    final entries = userGrowth.entries.toList();
+    final entries = userGrowth.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
     bool? isPositive;
     double changePercent = 0.0;
     String changeText = 'No data';
     bool hasData = false;
+    int totalUsers = 0;
+    int recentUsers = 0;
     
-    if (entries.length >= 2) {
-      // Compare most recent to previous period
-      final recent = entries.last.value;
-      final previous = entries[entries.length - 2].value;
-      if (previous > 0) {
-        changePercent = ((recent - previous) / previous * 100);
-        isPositive = changePercent >= 0;
-        changeText = '${isPositive ? '+' : ''}${changePercent.toStringAsFixed(1)}%';
+    if (entries.isNotEmpty) {
+      // Get total and recent counts
+      recentUsers = entries.last.value;
+      totalUsers = recentUsers;
+      
+      // Try to calculate trend if we have at least 2 entries
+      if (entries.length >= 2) {
+        final recent = entries.last.value;
+        final previous = entries[entries.length - 2].value;
+        
+        if (previous > 0) {
+          changePercent = ((recent - previous) / previous * 100);
+          isPositive = changePercent >= 0;
+          changeText = '${isPositive ? '+' : ''}${changePercent.toStringAsFixed(1)}%';
+          hasData = true;
+        } else if (recent > 0) {
+          // If previous was 0 but recent has data, show positive growth
+          changeText = '+100%';
+          isPositive = true;
+          hasData = true;
+        }
+      } else if (recentUsers > 0) {
+        // If we only have one data point with users, show it
+        changeText = '$recentUsers users';
         hasData = true;
       }
     }
@@ -930,9 +939,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         children: [
           Row(
             children: [
-              if (hasData) ...[
+              if (hasData && isPositive != null) ...[
                 Icon(
-                  isPositive! ? Icons.arrow_upward : Icons.arrow_downward,
+                  isPositive ? Icons.arrow_upward : Icons.arrow_downward,
                   color: isPositive ? Colors.green : Colors.red,
                   size: 24,
                 ),
@@ -944,17 +953,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: hasData 
-                    ? (isPositive! ? Colors.green : Colors.red)
+                    ? (isPositive != null ? (isPositive ? Colors.green : Colors.red) : AppTheme.primaryColor)
                     : AppTheme.textSecondary,
                 ),
               ),
             ],
           ),
-          if (hasData) ...[
+          if (hasData && isPositive != null) ...[
             const SizedBox(height: 8),
             Text(
-              isPositive! ? 'User growth increased' : 'User growth decreased',
-              style: TextStyle(
+              isPositive ? 'User growth increased' : 'User growth decreased',
+              style: const TextStyle(
                 fontSize: 14,
                 color: AppTheme.textSecondary,
               ),
@@ -963,10 +972,18 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           if (entries.isNotEmpty) ...[
             const SizedBox(height: 16),
             Text(
-              'Current: ${entries.last.value} users',
+              'Total Users: $totalUsers',
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Last 30 days: ${entries.where((e) => e.value > 0).length} days with activity',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
               ),
             ),
           ],
@@ -1035,20 +1052,42 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   Widget _buildAppointmentTrendsChart(Map<String, int> appointmentTrends) {
     // Calculate trend from appointmentTrends data
-    final entries = appointmentTrends.entries.toList();
+    final entries = appointmentTrends.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
     bool? isPositive;
     double changePercent = 0.0;
     String changeText = 'No data';
     bool hasData = false;
+    int totalAppointments = 0;
+    int recentAppointments = 0;
     
-    if (entries.length >= 2) {
-      // Compare most recent to previous period
-      final recent = entries.last.value;
-      final previous = entries[entries.length - 2].value;
-      if (previous > 0) {
-        changePercent = ((recent - previous) / previous * 100);
-        isPositive = changePercent >= 0;
-        changeText = '${isPositive ? '+' : ''}${changePercent.toStringAsFixed(1)}%';
+    if (entries.isNotEmpty) {
+      // Calculate total appointments in the period
+      totalAppointments = entries.fold(0, (sum, entry) => sum + entry.value);
+      recentAppointments = entries.last.value;
+      
+      // Try to calculate trend if we have at least 2 entries
+      if (entries.length >= 2) {
+        final recent = entries.last.value;
+        final previous = entries[entries.length - 2].value;
+        
+        if (previous > 0) {
+          changePercent = ((recent - previous) / previous * 100);
+          isPositive = changePercent >= 0;
+          changeText = '${isPositive ? '+' : ''}${changePercent.toStringAsFixed(1)}%';
+          hasData = true;
+        } else if (recent > 0) {
+          // If previous was 0 but recent has data, show positive growth
+          changeText = '+100%';
+          isPositive = true;
+          hasData = true;
+        } else if (totalAppointments > 0) {
+          // Show total if we have appointments but can't calculate trend
+          changeText = '$totalAppointments total';
+          hasData = true;
+        }
+      } else if (totalAppointments > 0) {
+        // If we have appointments but only one data point, show total
+        changeText = '$totalAppointments appointments';
         hasData = true;
       }
     }
@@ -1065,9 +1104,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         children: [
           Row(
             children: [
-              if (hasData) ...[
+              if (hasData && isPositive != null) ...[
                 Icon(
-                  isPositive! ? Icons.arrow_upward : Icons.arrow_downward,
+                  isPositive ? Icons.arrow_upward : Icons.arrow_downward,
                   color: isPositive ? Colors.green : Colors.red,
                   size: 24,
                 ),
@@ -1079,17 +1118,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: hasData 
-                    ? (isPositive! ? Colors.green : Colors.red)
+                    ? (isPositive != null ? (isPositive ? Colors.green : Colors.red) : AppTheme.primaryColor)
                     : AppTheme.textSecondary,
                 ),
               ),
             ],
           ),
-          if (hasData) ...[
+          if (hasData && isPositive != null) ...[
             const SizedBox(height: 8),
             Text(
-              isPositive! ? 'Appointments increased' : 'Appointments decreased',
-              style: TextStyle(
+              isPositive ? 'Appointments increased' : 'Appointments decreased',
+              style: const TextStyle(
                 fontSize: 14,
                 color: AppTheme.textSecondary,
               ),
@@ -1098,10 +1137,26 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           if (entries.isNotEmpty) ...[
             const SizedBox(height: 16),
             Text(
-              'Current: ${entries.last.value} appointments',
+              'Total (30 days): $totalAppointments',
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Today: $recentAppointments',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Active days: ${entries.where((e) => e.value > 0).length}',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
               ),
             ),
           ],

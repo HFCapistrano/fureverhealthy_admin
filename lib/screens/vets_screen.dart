@@ -42,7 +42,7 @@ class _VetsScreenState extends State<VetsScreen> {
       final status = (data['status'] ?? '').toString();
       final specialization = (data['specialization'] ?? '').toString();
       final verified = (data['verified'] ?? false) == true;
-      final userType = (data['userType'] ?? '').toString();
+      final userType = (data['userType'] ?? 'regular').toString();
 
       final matchesSearch = name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           email.toLowerCase().contains(_searchQuery.toLowerCase()) ||
@@ -1597,17 +1597,17 @@ class _VetsScreenState extends State<VetsScreen> {
                                                 ),
                                                 const DataColumn(label: Text('View')),
                                                 const DataColumn(label: Text('Veterinarian')),
-                                                DataColumn(label: Text('Contact')),
-                                                DataColumn(label: Text('Specialization')),
-                                                DataColumn(label: Text('Experience')),
-                                                DataColumn(label: Text('Clinic')),
-                                                DataColumn(label: Text('Account Status')),
-                                                DataColumn(label: Text('Online Status')),
-                                                DataColumn(label: Text('Verified')),
-                                                DataColumn(label: Text('User Type')),
-                                                DataColumn(label: Text('Rating')),
-                                                DataColumn(label: Text('Patients')),
-                                                DataColumn(label: Text('Actions')),
+                                                const DataColumn(label: Text('Contact')),
+                                                const DataColumn(label: Text('Specialization')),
+                                                const DataColumn(label: Text('Experience')),
+                                                const DataColumn(label: Text('Clinic')),
+                                                const DataColumn(label: Text('Account Status')),
+                                                const DataColumn(label: Text('Online Status')),
+                                                const DataColumn(label: Text('Verified')),
+                                                const DataColumn(label: Text('User Type')),
+                                                const DataColumn(label: Text('Rating')),
+                                                const DataColumn(label: Text('Patients')),
+                                                const DataColumn(label: Text('Actions')),
                                               ],
                                       rows: filtered.map((doc) {
                                         final data = doc.data();
@@ -1620,7 +1620,7 @@ class _VetsScreenState extends State<VetsScreen> {
                                         final clinic = (data['clinic'] ?? '').toString();
                                         final status = (data['status'] ?? '').toString();
                                         final verified = (data['verified'] ?? false) == true;
-                                        final userType = (data['userType'] ?? '').toString();
+                                        final userType = (data['userType'] ?? 'regular').toString();
                                         final rating = (data['rating'] ?? '').toString();
                                         final patients = (data['patients'] ?? '').toString();
 

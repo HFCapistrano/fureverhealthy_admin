@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:furever_healthy_admin/theme/app_theme.dart';
 import 'package:furever_healthy_admin/widgets/sidebar.dart';
 import 'package:furever_healthy_admin/services/database_service.dart';
+import 'package:furever_healthy_admin/providers/auth_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
@@ -169,6 +171,71 @@ class _ContentsScreenState extends State<ContentsScreen> {
                           backgroundColor: AppTheme.primaryColor,
                           foregroundColor: Colors.white,
                         ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Notification Management
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: const BoxDecoration(
+                    color: AppTheme.surfaceColor,
+                    border: Border(
+                      bottom: BorderSide(color: AppTheme.borderColor),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.notifications_active, color: AppTheme.primaryColor),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Notification Management',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 16,
+                        runSpacing: 16,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: () => _showNotificationComposer(context),
+                            icon: const Icon(Icons.add),
+                            label: const Text('Compose Announcement'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                            ),
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: () => _showBreedTipsComposer(context),
+                            icon: const Icon(Icons.tips_and_updates),
+                            label: const Text('Compose Breed-Specific Tips'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                            ),
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: () => _showMaintenanceNoticeComposer(context),
+                            icon: const Icon(Icons.build),
+                            label: const Text('Create Maintenance Notice'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -514,5 +581,498 @@ class _ContentsScreenState extends State<ContentsScreen> {
       default:
         return category;
     }
+  }
+
+  void _showNotificationComposer(BuildContext context) {
+    final titleController = TextEditingController();
+    final contentController = TextEditingController();
+    String targetAudience = 'all';
+    DateTime? scheduledDate;
+    bool sendNow = true;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.6,
+          constraints: const BoxConstraints(maxWidth: 700),
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.notifications, color: AppTheme.primaryColor),
+                    SizedBox(width: 8),
+                    Text(
+                      'Compose Announcement',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Title *',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: contentController,
+                  decoration: const InputDecoration(
+                    labelText: 'Content *',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 5,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: targetAudience,
+                  decoration: const InputDecoration(
+                    labelText: 'Target Audience',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'all', child: Text('All Users')),
+                    DropdownMenuItem(value: 'premium', child: Text('Premium Users')),
+                  ],
+                  onChanged: (value) => targetAudience = value!,
+                ),
+                const SizedBox(height: 16),
+                StatefulBuilder(
+                  builder: (context, setDialogState) => CheckboxListTile(
+                    title: const Text('Send Now'),
+                    value: sendNow,
+                    onChanged: (value) => setDialogState(() => sendNow = value ?? true),
+                  ),
+                ),
+                StatefulBuilder(
+                  builder: (context, setDialogState) {
+                    return sendNow
+                        ? const SizedBox.shrink()
+                        : Column(
+                            children: [
+                              const SizedBox(height: 8),
+                              ElevatedButton.icon(
+                                onPressed: () async {
+                                  final date = await showDatePicker(
+                                    context: context,
+                                    firstDate: DateTime.now(),
+                                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                                  );
+                                  if (date != null) {
+                                    final time = await showTimePicker(
+                                      context: context,
+                                      initialTime: TimeOfDay.now(),
+                                    );
+                                    if (time != null) {
+                                      setDialogState(() {
+                                        scheduledDate = DateTime(
+                                          date.year,
+                                          date.month,
+                                          date.day,
+                                          time.hour,
+                                          time.minute,
+                                        );
+                                      });
+                                    }
+                                  }
+                                },
+                                icon: const Icon(Icons.calendar_today),
+                                label: Text(
+                                  scheduledDate != null
+                                      ? DateFormat('MMM d, yyyy h:mm a').format(scheduledDate!)
+                                      : 'Schedule Date & Time',
+                                ),
+                              ),
+                            ],
+                          );
+                  },
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        if (titleController.text.isEmpty || contentController.text.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please fill in all required fields'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        try {
+                          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                          await DatabaseService.createNotification({
+                            'title': titleController.text,
+                            'content': contentController.text,
+                            'type': 'announcement',
+                            'targetAudience': targetAudience,
+                            'status': sendNow ? 'sent' : 'scheduled',
+                            'scheduledDate': scheduledDate != null
+                                ? Timestamp.fromDate(scheduledDate!)
+                                : null,
+                            'createdBy': authProvider.userEmail ?? 'admin',
+                            'createdAt': FieldValue.serverTimestamp(),
+                          });
+
+                          if (mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Announcement created successfully'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error creating announcement: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.send),
+                      label: const Text('Send'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showBreedTipsComposer(BuildContext context) {
+    final titleController = TextEditingController();
+    final contentController = TextEditingController();
+    String selectedBreed = '';
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.6,
+          constraints: const BoxConstraints(maxWidth: 700),
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.tips_and_updates, color: AppTheme.primaryColor),
+                    SizedBox(width: 8),
+                    Text(
+                      'Compose Breed-Specific Tips',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Title *',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: contentController,
+                  decoration: const InputDecoration(
+                    labelText: 'Content/Tips *',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 5,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Breed Key (optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) => selectedBreed = value,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        if (titleController.text.isEmpty || contentController.text.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please fill in all required fields'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        try {
+                          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                          await DatabaseService.createNotification({
+                            'title': titleController.text,
+                            'content': contentController.text,
+                            'type': 'breed_tips',
+                            'breedKey': selectedBreed,
+                            'status': 'sent',
+                            'createdBy': authProvider.userEmail ?? 'admin',
+                            'createdAt': FieldValue.serverTimestamp(),
+                          });
+
+                          if (mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Breed tips created successfully'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error creating breed tips: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.send),
+                      label: const Text('Send'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showMaintenanceNoticeComposer(BuildContext context) {
+    final titleController = TextEditingController(text: 'System Maintenance');
+    final contentController = TextEditingController();
+    DateTime? maintenanceStart;
+    DateTime? maintenanceEnd;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.6,
+          constraints: const BoxConstraints(maxWidth: 700),
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.build, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text(
+                      'Create Maintenance Notice',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Title *',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: contentController,
+                  decoration: const InputDecoration(
+                    labelText: 'Maintenance Details *',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 5,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                          );
+                          if (date != null) {
+                            final time = await showTimePicker(
+                              context: context,
+                              initialTime: TimeOfDay.now(),
+                            );
+                            if (time != null) {
+                              setState(() {
+                                maintenanceStart = DateTime(
+                                  date.year,
+                                  date.month,
+                                  date.day,
+                                  time.hour,
+                                  time.minute,
+                                );
+                              });
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.access_time),
+                        label: Text(
+                          maintenanceStart != null
+                              ? 'Start: ${DateFormat('MMM d, h:mm a').format(maintenanceStart!)}'
+                              : 'Start Time',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                          );
+                          if (date != null) {
+                            final time = await showTimePicker(
+                              context: context,
+                              initialTime: TimeOfDay.now(),
+                            );
+                            if (time != null) {
+                              setState(() {
+                                maintenanceEnd = DateTime(
+                                  date.year,
+                                  date.month,
+                                  date.day,
+                                  time.hour,
+                                  time.minute,
+                                );
+                              });
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.access_time),
+                        label: Text(
+                          maintenanceEnd != null
+                              ? 'End: ${DateFormat('MMM d, h:mm a').format(maintenanceEnd!)}'
+                              : 'End Time',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        if (contentController.text.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please fill in maintenance details'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        try {
+                          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                          await DatabaseService.createNotification({
+                            'title': titleController.text,
+                            'content': contentController.text,
+                            'type': 'maintenance',
+                            'maintenanceStart': maintenanceStart != null
+                                ? Timestamp.fromDate(maintenanceStart!)
+                                : null,
+                            'maintenanceEnd': maintenanceEnd != null
+                                ? Timestamp.fromDate(maintenanceEnd!)
+                                : null,
+                            'status': 'sent',
+                            'createdBy': authProvider.userEmail ?? 'admin',
+                            'createdAt': FieldValue.serverTimestamp(),
+                          });
+
+                          if (mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Maintenance notice created successfully'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error creating maintenance notice: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.send),
+                      label: const Text('Send'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
