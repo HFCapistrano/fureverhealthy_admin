@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:furever_healthy_admin/theme/app_theme.dart';
 import 'package:furever_healthy_admin/widgets/sidebar.dart';
 import 'package:furever_healthy_admin/services/database_service.dart';
+import 'package:furever_healthy_admin/providers/auth_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PaymentTrackerScreen extends StatefulWidget {
@@ -14,7 +16,7 @@ class PaymentTrackerScreen extends StatefulWidget {
 class _PaymentTrackerScreenState extends State<PaymentTrackerScreen> {
   String _searchQuery = '';
   String _typeFilter = 'all'; // 'all', 'user', 'vet'
-  String _statusFilter = 'all'; // 'all', 'Pending', 'Approved', 'Rejected'
+  String _statusFilter = 'all'; // 'all', 'Pending', 'Verified', 'Rejected'
   String _sortBy = 'date'; // 'date', 'name', 'reference'
   
   // Cache for user/vet names
@@ -502,7 +504,7 @@ class _PaymentTrackerScreenState extends State<PaymentTrackerScreen> {
 
   void _updatePaymentStatus(BuildContext context, String paymentId, String newStatus) {
     final passwordController = TextEditingController();
-    final isApproved = newStatus.toLowerCase() == 'approved';
+    final isVerified = newStatus.toLowerCase() == 'verified' || newStatus.toLowerCase() == 'approved';
     
     showDialog(
       context: context,
@@ -510,18 +512,18 @@ class _PaymentTrackerScreenState extends State<PaymentTrackerScreen> {
         title: Row(
           children: [
             Icon(
-              isApproved ? Icons.check_circle : Icons.cancel,
-              color: isApproved ? Colors.green : Colors.red,
+              isVerified ? Icons.check_circle : Icons.cancel,
+              color: isVerified ? Colors.green : Colors.red,
             ),
             const SizedBox(width: 8),
-            Text('${isApproved ? 'Approve' : 'Reject'} Payment'),
+            Text('${isVerified ? 'Verify' : 'Reject'} Payment'),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Are you sure you want to ${isApproved ? 'approve' : 'reject'} this payment?'),
+            Text('Are you sure you want to ${isVerified ? 'verify' : 'reject'} this payment?'),
             const SizedBox(height: 16),
             TextField(
               controller: passwordController,
@@ -557,7 +559,9 @@ class _PaymentTrackerScreenState extends State<PaymentTrackerScreen> {
                 return;
               }
               
-              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              final adminEmail = authProvider.userEmail ?? '';
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(adminEmail, passwordController.text);
               if (!isPasswordValid) {
                 scaffoldMessenger.showSnackBar(
                   const SnackBar(
@@ -570,15 +574,15 @@ class _PaymentTrackerScreenState extends State<PaymentTrackerScreen> {
               }
               
               try {
-                // Use capitalized status: "Approved" or "Rejected"
-                final statusToUpdate = isApproved ? 'Approved' : 'Rejected';
+                // Use capitalized status: "Verified" or "Rejected"
+                final statusToUpdate = isVerified ? 'Verified' : 'Rejected';
                 await DatabaseService.updatePaymentStatus(paymentId, statusToUpdate);
                 if (mounted) {
                   passwordController.dispose();
                   Navigator.pop(context);
                   scaffoldMessenger.showSnackBar(
                     SnackBar(
-                      content: Text('Payment ${isApproved ? 'approved' : 'rejected'} successfully'),
+                      content: Text('Payment ${isVerified ? 'verified' : 'rejected'} successfully'),
                       backgroundColor: Colors.green,
                     ),
                   );
@@ -597,11 +601,11 @@ class _PaymentTrackerScreenState extends State<PaymentTrackerScreen> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: isApproved ? Colors.green : Colors.red,
+              backgroundColor: isVerified ? Colors.green : Colors.red,
               foregroundColor: Colors.white,
             ),
-            icon: Icon(isApproved ? Icons.check_circle : Icons.cancel),
-            label: Text(isApproved ? 'Approve' : 'Reject'),
+            icon: Icon(isVerified ? Icons.check_circle : Icons.cancel),
+            label: Text(isVerified ? 'Verify' : 'Reject'),
           ),
         ],
       ),
@@ -722,7 +726,7 @@ class _PaymentTrackerScreenState extends State<PaymentTrackerScreen> {
                                       items: const [
                                         DropdownMenuItem(value: 'all', child: Text('All')),
                                         DropdownMenuItem(value: 'Pending', child: Text('Pending')),
-                                        DropdownMenuItem(value: 'Approved', child: Text('Approved')),
+                                        DropdownMenuItem(value: 'Verified', child: Text('Verified')),
                                         DropdownMenuItem(value: 'Rejected', child: Text('Rejected')),
                                       ],
                                       onChanged: (value) {
@@ -921,7 +925,7 @@ class _PaymentTrackerScreenState extends State<PaymentTrackerScreen> {
                                                       Container(
                                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                                         decoration: BoxDecoration(
-                                                          color: status.toLowerCase() == 'approved'
+                                                          color: status.toLowerCase() == 'verified' || status.toLowerCase() == 'approved'
                                                               ? AppTheme.successColor.withOpacity(0.1)
                                                               : status.toLowerCase() == 'rejected'
                                                                   ? AppTheme.errorColor.withOpacity(0.1)
@@ -931,7 +935,7 @@ class _PaymentTrackerScreenState extends State<PaymentTrackerScreen> {
                                                         child: Text(
                                                           status,
                                                           style: TextStyle(
-                                                            color: status.toLowerCase() == 'approved'
+                                                            color: status.toLowerCase() == 'verified' || status.toLowerCase() == 'approved'
                                                                 ? AppTheme.successColor
                                                                 : status.toLowerCase() == 'rejected'
                                                                     ? AppTheme.errorColor
@@ -948,26 +952,27 @@ class _PaymentTrackerScreenState extends State<PaymentTrackerScreen> {
                                                         children: [
                                                           if (status.toLowerCase() == 'pending') ...[
                                                             IconButton(
-                                                              onPressed: () => _updatePaymentStatus(context, doc.id, 'Approved'),
-                                                              icon: const Icon(Icons.check_circle, size: 16),
-                                                              tooltip: 'Approve',
+                                                              onPressed: () => _updatePaymentStatus(context, doc.id, 'Verified'),
+                                                              icon: const Icon(Icons.check_circle, size: 20),
+                                                              tooltip: 'Verify',
                                                               color: Colors.green,
                                                               constraints: const BoxConstraints(
-                                                                minWidth: 24,
-                                                                minHeight: 24,
+                                                                minWidth: 32,
+                                                                minHeight: 32,
                                                               ),
-                                                              padding: EdgeInsets.zero,
+                                                              padding: const EdgeInsets.all(4),
                                                             ),
+                                                            const SizedBox(width: 4),
                                                             IconButton(
                                                               onPressed: () => _updatePaymentStatus(context, doc.id, 'Rejected'),
-                                                              icon: const Icon(Icons.cancel, size: 16),
+                                                              icon: const Icon(Icons.cancel, size: 20),
                                                               tooltip: 'Reject',
                                                               color: Colors.red,
                                                               constraints: const BoxConstraints(
-                                                                minWidth: 24,
-                                                                minHeight: 24,
+                                                                minWidth: 32,
+                                                                minHeight: 32,
                                                               ),
-                                                              padding: EdgeInsets.zero,
+                                                              padding: const EdgeInsets.all(4),
                                                             ),
                                                           ],
                                                         ],

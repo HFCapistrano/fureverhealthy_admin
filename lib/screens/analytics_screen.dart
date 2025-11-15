@@ -24,6 +24,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   @override
   void initState() {
     super.initState();
+    // Initialize default date range (Last 30 Days)
+    final now = DateTime.now();
+    _startDate = now.subtract(const Duration(days: 30));
+    _endDate = now;
+    
     // Load analytics data from Firebase when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AnalyticsProvider>().loadAnalyticsData();
@@ -38,8 +43,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         DatabaseService.getActiveUsersCount(startDate: _startDate, endDate: _endDate),
         DatabaseService.getActiveVetsCount(startDate: _startDate, endDate: _endDate),
         DatabaseService.getAppointmentFunnel(startDate: _startDate, endDate: _endDate),
-        DatabaseService.getCancellationReasons(startDate: _startDate, endDate: _endDate),
-        DatabaseService.getTopFeedbackCategories(startDate: _startDate, endDate: _endDate),
       ]);
 
       setState(() {
@@ -47,8 +50,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           'activeUsers': results[0] as int,
           'activeVets': results[1] as int,
           'appointmentFunnel': results[2] as Map<String, dynamic>,
-          'cancellationReasons': results[3] as Map<String, int>,
-          'topFeedbackCategories': results[4] as Map<String, int>,
         };
         _isLoadingReports = false;
       });
@@ -155,7 +156,28 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                               onChanged: (value) {
                                 setState(() {
                                   _selectedPeriod = value!;
+                                  // Calculate date range based on selected period
+                                  final now = DateTime.now();
+                                  switch (value) {
+                                    case 'Last 7 Days':
+                                      _startDate = now.subtract(const Duration(days: 7));
+                                      _endDate = now;
+                                      break;
+                                    case 'Last 30 Days':
+                                      _startDate = now.subtract(const Duration(days: 30));
+                                      _endDate = now;
+                                      break;
+                                    case 'Last 90 Days':
+                                      _startDate = now.subtract(const Duration(days: 90));
+                                      _endDate = now;
+                                      break;
+                                    case 'Last Year':
+                                      _startDate = now.subtract(const Duration(days: 365));
+                                      _endDate = now;
+                                      break;
+                                  }
                                 });
+                                _loadReports();
                               },
                             ),
                             ElevatedButton.icon(
@@ -238,7 +260,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   child: _buildMetricCard(
                                     title: 'Total Users',
                                     value: '${analyticsData.totalUsers}',
-                                    change: '+12.5%',
+                                    change: analyticsData.totalUsers > 0 
+                                        ? '${((analyticsData.premiumUsers / analyticsData.totalUsers) * 100).toStringAsFixed(1)}% premium'
+                                        : 'N/A',
                                     isPositive: true,
                                     icon: Icons.people,
                                     color: Colors.blue,
@@ -249,7 +273,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   child: _buildMetricCard(
                                     title: 'Premium Users',
                                     value: '${analyticsData.premiumUsers}',
-                                    change: '+18.2%',
+                                    change: analyticsData.totalUsers > 0
+                                        ? '${((analyticsData.premiumUsers / analyticsData.totalUsers) * 100).toStringAsFixed(1)}% of total'
+                                        : 'N/A',
                                     isPositive: true,
                                     icon: Icons.star,
                                     color: Colors.amber,
@@ -260,7 +286,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   child: _buildMetricCard(
                                     title: 'Active Vets',
                                     value: '${analyticsData.activeVets}',
-                                    change: '+8.2%',
+                                    change: provider.verifiedVetsCount > 0
+                                        ? '${provider.verifiedVetsCount} verified'
+                                        : 'N/A',
                                     isPositive: true,
                                     icon: Icons.medical_services,
                                     color: Colors.green,
@@ -271,7 +299,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   child: _buildMetricCard(
                                     title: 'Premium Vets',
                                     value: '${analyticsData.premiumVets}',
-                                    change: '+15.7%',
+                                    change: analyticsData.activeVets > 0
+                                        ? '${((analyticsData.premiumVets / analyticsData.activeVets) * 100).toStringAsFixed(1)}% of total vets'
+                                        : 'N/A',
                                     isPositive: true,
                                     icon: Icons.verified,
                                     color: Colors.purple,
@@ -289,7 +319,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   child: _buildMetricCard(
                                     title: 'Total Appointments',
                                     value: '${analyticsData.totalAppointments}',
-                                    change: '+15.3%',
+                                    change: 'Total count',
                                     isPositive: true,
                                     icon: Icons.calendar_today,
                                     color: Colors.orange,
@@ -299,8 +329,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                 Flexible(
                                   child: _buildMetricCard(
                                     title: 'Revenue',
-                                    value: '\$${analyticsData.revenue.toStringAsFixed(0)}',
-                                    change: '+22.1%',
+                                    value: '₱${analyticsData.revenue.toStringAsFixed(0)}',
+                                    change: 'From approved payments',
                                     isPositive: true,
                                     icon: Icons.attach_money,
                                     color: Colors.teal,
@@ -310,8 +340,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                 Flexible(
                                   child: _buildMetricCard(
                                     title: 'Avg. Rating',
-                                    value: analyticsData.averageRating.toStringAsFixed(1),
-                                    change: '+0.2',
+                                    value: analyticsData.averageRating > 0 
+                                        ? analyticsData.averageRating.toStringAsFixed(1)
+                                        : 'N/A',
+                                    change: analyticsData.averageRating > 0 
+                                        ? 'Out of 5.0'
+                                        : 'No ratings yet',
                                     isPositive: true,
                                     icon: Icons.star_rate,
                                     color: Colors.indigo,
@@ -322,7 +356,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   child: _buildMetricCard(
                                     title: 'Pet Breeds',
                                     value: '${analyticsData.petBreeds}',
-                                    change: '+5.2%',
+                                    change: 'Available breeds',
                                     isPositive: true,
                                     icon: Icons.pets,
                                     color: Colors.pink,
@@ -390,7 +424,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                     Expanded(
                                       child: _buildChartCard(
                                         title: 'Vet Verification Status',
-                                        child: _buildVetVerificationChart(analyticsData),
+                                        child: Consumer<AnalyticsProvider>(
+                                          builder: (context, provider, child) {
+                                            return _buildVetVerificationChart(analyticsData, provider);
+                                          },
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -499,77 +537,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                 ),
 
                                 const SizedBox(height: 24),
-
-                                // Top Feedback Categories and Cancellation Reasons
-                                Row(
-                                  children: [
-                                    // Top Feedback Categories
-                                    Expanded(
-                                      child: Card(
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(24),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  const Icon(Icons.feedback, color: AppTheme.primaryColor),
-                                                  const SizedBox(width: 8),
-                                                  Flexible(
-                                                    child: Text(
-                                                      'Top Feedback Categories',
-                                                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                                            fontWeight: FontWeight.bold,
-                                                          ),
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 24),
-                                              _buildCategoryList(
-                                                _reportData['topFeedbackCategories'] as Map<String, int>? ?? {},
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    // Cancellation Reasons
-                                    Expanded(
-                                      child: Card(
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(24),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  const Icon(Icons.cancel, color: Colors.red),
-                                                  const SizedBox(width: 8),
-                                                  Flexible(
-                                                    child: Text(
-                                                      'Cancellation Reasons',
-                                                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                                            fontWeight: FontWeight.bold,
-                                                          ),
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 24),
-                                              _buildReasonList(
-                                                _reportData['cancellationReasons'] as Map<String, int>? ?? {},
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
                               ],
                             ),
                           );
@@ -682,114 +649,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildCategoryList(Map<String, int> categories) {
-    if (categories.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32.0),
-          child: Text('No feedback categories found'),
-        ),
-      );
-    }
-
-    final entries = categories.entries.toList();
-    final maxCount = entries.isNotEmpty ? entries.first.value : 1;
-
-    return Column(
-      children: entries.take(5).map((entry) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: Text(
-                  entry.key,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-              Expanded(
-                flex: 3,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: entry.value / maxCount,
-                    minHeight: 20,
-                    backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 40,
-                child: Text(
-                  '${entry.value}',
-                  textAlign: TextAlign.end,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildReasonList(Map<String, int> reasons) {
-    if (reasons.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32.0),
-          child: Text('No cancellation reasons found'),
-        ),
-      );
-    }
-
-    final entries = reasons.entries.toList();
-    final maxCount = entries.isNotEmpty ? entries.first.value : 1;
-
-    return Column(
-      children: entries.take(5).map((entry) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: Text(
-                  entry.key.isEmpty ? 'Not specified' : entry.key,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-              Expanded(
-                flex: 3,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: entry.value / maxCount,
-                    minHeight: 20,
-                    backgroundColor: Colors.red.withOpacity(0.1),
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.red),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 40,
-                child: Text(
-                  '${entry.value}',
-                  textAlign: TextAlign.end,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
     );
   }
 
@@ -1003,21 +862,50 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Color _getColorForCategory(String category) {
-    switch (category) {
-      case 'Dogs':
+    // Predefined colors for common species
+    switch (category.toLowerCase()) {
+      case 'dog':
+      case 'dogs':
         return Colors.blue;
-      case 'Cats':
+      case 'cat':
+      case 'cats':
         return Colors.orange;
-      case 'Birds':
+      case 'bird':
+      case 'birds':
         return Colors.purple;
-      case 'Fish':
+      case 'fish':
         return Colors.teal;
-      case 'Reptiles':
+      case 'reptile':
+      case 'reptiles':
         return Colors.indigo;
-      case 'Other':
+      case 'rabbit':
+      case 'rabbits':
+        return Colors.brown;
+      case 'hamster':
+      case 'hamsters':
+        return Colors.amber;
+      case 'guinea pig':
+      case 'guinea pigs':
+        return Colors.deepOrange;
+      case 'ferret':
+      case 'ferrets':
+        return Colors.deepPurple;
+      case 'other':
         return Colors.pink;
       default:
-        return Colors.grey;
+        // Generate a consistent color for unknown species based on hash
+        final hash = category.hashCode;
+        final colors = [
+          Colors.red,
+          Colors.green,
+          Colors.cyan,
+          Colors.lime,
+          Colors.yellow,
+          Colors.blueGrey,
+          Colors.lightBlue,
+          Colors.lightGreen,
+        ];
+        return colors[hash.abs() % colors.length];
     }
   }
 
@@ -1263,10 +1151,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  Widget _buildVetVerificationChart(AnalyticsData analyticsData) {
+  Widget _buildVetVerificationChart(AnalyticsData analyticsData, AnalyticsProvider provider) {
     final totalVets = analyticsData.activeVets;
-    // For now, we'll assume 85% of vets are verified (this should come from Firebase data)
-    final verifiedVets = (totalVets * 0.85).round();
+    // Get verified vets count from provider
+    final verifiedVets = provider.verifiedVetsCount;
     final unverifiedVets = totalVets - verifiedVets;
 
           return Column(

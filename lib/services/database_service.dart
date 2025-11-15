@@ -13,6 +13,9 @@ class DatabaseService {
   // Appointments Collection
   static CollectionReference get appointments => _firestore.collection('appointments');
   
+  // User Appointments Collection
+  static CollectionReference get userAppointments => _firestore.collection('user_appointments');
+  
   // Pets Collection
   static CollectionReference get pets => _firestore.collection('pets');
   
@@ -283,28 +286,44 @@ class DatabaseService {
     }
   }
 
-  static Future<bool> verifyAdminPassword(String password) async {
+  static Future<bool> verifyAdminPassword(String email, String password) async {
     try {
-      // In a real implementation, this would verify against Firebase Auth
-      // For now, we'll use a simple check against the admin password stored in systemConfig
-      final configDoc = await systemConfig.doc('adminPassword').get();
-      if (configDoc.exists) {
-        final data = configDoc.data() as Map<String, dynamic>?;
-        final storedPassword = data?['password'] as String?;
-        return storedPassword == password || password == 'admin123'; // Keep fallback for compatibility
+      // Get admin document by email
+      final adminDoc = await getAdminUserByEmail(email);
+      
+      if (adminDoc == null || !adminDoc.exists) {
+        // If admin doesn't exist, only allow default password for admin@pethealth.com
+        if (email == 'admin@pethealth.com') {
+          return password == 'admin123';
+        }
+        return false;
       }
-      // Default password if config doesn't exist
-      return password == 'admin123';
+      
+      final adminData = adminDoc.data() as Map<String, dynamic>?;
+      final storedPassword = adminData?['password'] as String?;
+      
+      // If password is set in admin document, check against it
+      if (storedPassword != null && storedPassword.isNotEmpty) {
+        return storedPassword == password;
+      }
+      
+      // If no password is set, only allow default for admin@pethealth.com
+      if (email == 'admin@pethealth.com') {
+        return password == 'admin123';
+      }
+      
+      // For other admins, require password to be set
+      return false;
     } catch (e) {
       print('Error verifying admin password: $e');
       return false;
     }
   }
 
-  static Future<bool> changeAdminPassword(String currentPassword, String newPassword) async {
+  static Future<bool> changeAdminPassword(String email, String currentPassword, String newPassword) async {
     try {
       // Verify current password first
-      final isValid = await verifyAdminPassword(currentPassword);
+      final isValid = await verifyAdminPassword(email, currentPassword);
       if (!isValid) {
         return false;
       }
@@ -314,18 +333,22 @@ class DatabaseService {
         throw Exception('Password must be at least 8 characters long');
       }
 
-      // In a real implementation, this would update Firebase Auth
-      // For now, we'll store it in systemConfig
-      await systemConfig.doc('adminPassword').set({
-        'password': newPassword,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': 'admin', // In real app, this would be the admin's email
-      }, SetOptions(merge: true));
+      // Get admin document
+      final adminDoc = await getAdminUserByEmail(email);
+      if (adminDoc == null || !adminDoc.exists) {
+        throw Exception('Admin account not found');
+      }
 
-      // Log the password change (using empty string as adminId since we don't have it here)
+      // Store password in the admin's document
+      await admins.doc(adminDoc.id).update({
+        'password': newPassword,
+        'passwordUpdatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // Log the password change
       await logConfigChange(
-        '',
-        'admin',
+        adminDoc.id,
+        email,
         'adminPassword',
         '*****',
         '*****',
@@ -464,12 +487,91 @@ class DatabaseService {
 
   // Pet Info Management
   static Stream<QuerySnapshot> getPetsByUserId(String userId) {
-    return petInfos.where('ownerID', isEqualTo: userId).snapshots();
+    // Use userId field (primary field name in database)
+    return petInfos.where('userId', isEqualTo: userId).snapshots();
+  }
+
+  static Future<List<QueryDocumentSnapshot>> getPetsByUserIdAsync(String userId) async {
+    // Get pets with userId field (primary)
+    final petsByUserId = await petInfos.where('userId', isEqualTo: userId).get();
+    
+    // Also check ownerID field as fallback for legacy data
+    final petsByOwnerID = await petInfos.where('ownerID', isEqualTo: userId).get();
+    
+    // Combine and deduplicate
+    final allPets = <String, QueryDocumentSnapshot>{};
+    for (final pet in petsByUserId.docs) {
+      allPets[pet.id] = pet;
+    }
+    for (final pet in petsByOwnerID.docs) {
+      allPets[pet.id] = pet;
+    }
+    
+    return allPets.values.toList();
+  }
+
+  static Future<List<QueryDocumentSnapshot>> getPetsByVetIdAsync(String vetId) async {
+    // Get pets linked directly via vetId field
+    final directPets = await petInfos.where('vetId', isEqualTo: vetId).get();
+    
+    // Also get pets through user_appointments (primary collection)
+    final userAppointments = await DatabaseService.userAppointments
+        .where('vetId', isEqualTo: vetId)
+        .get();
+    
+    // Also check regular appointments collection as fallback
+    final appointments = await DatabaseService.appointments
+        .where('vetId', isEqualTo: vetId)
+        .get();
+    
+    final petIdsFromAppointments = <String>{};
+    
+    // Process user_appointments
+    for (final appointment in userAppointments.docs) {
+      final data = appointment.data() as Map<String, dynamic>;
+      final petId = data['petId']?.toString();
+      if (petId != null && petId.isNotEmpty) {
+        petIdsFromAppointments.add(petId);
+      }
+    }
+    
+    // Process regular appointments
+    for (final appointment in appointments.docs) {
+      final data = appointment.data() as Map<String, dynamic>;
+      final petId = data['petId']?.toString();
+      if (petId != null && petId.isNotEmpty) {
+        petIdsFromAppointments.add(petId);
+      }
+    }
+    
+    // Get pet documents from appointment petIds
+    final petsFromAppointments = <QueryDocumentSnapshot>[];
+    if (petIdsFromAppointments.isNotEmpty) {
+      // Firestore 'in' queries are limited to 10 items, so we need to batch
+      final petIdsList = petIdsFromAppointments.toList();
+      for (var i = 0; i < petIdsList.length; i += 10) {
+        final batch = petIdsList.skip(i).take(10).toList();
+        final batchPets = await petInfos.where(FieldPath.documentId, whereIn: batch).get();
+        petsFromAppointments.addAll(batchPets.docs);
+      }
+    }
+    
+    // Combine and deduplicate
+    final allPets = <String, QueryDocumentSnapshot>{};
+    for (final pet in directPets.docs) {
+      allPets[pet.id] = pet;
+    }
+    for (final pet in petsFromAppointments) {
+      allPets[pet.id] = pet;
+    }
+    
+    return allPets.values.toList();
   }
 
   static Stream<QuerySnapshot> getPetsByVetId(String vetId) {
-    // Check if pets are linked to vets via ownerID or a separate vetId field
-    // For now, assuming vets also use ownerID or checking both fields
+    // For stream, we'll use the direct vetId query
+    // Note: This won't include pets from appointments, but streams can't easily combine multiple queries
+    // For complete data, use getPetsByVetIdAsync in a FutureBuilder
     return petInfos.where('vetId', isEqualTo: vetId).snapshots();
   }
 
@@ -586,7 +688,8 @@ class DatabaseService {
 
   // Reports and Analytics
   static Future<int> getActiveUsersCount({DateTime? startDate, DateTime? endDate}) async {
-    var query = users.where('deleted', isNotEqualTo: true);
+    // Build query without deleted filter to avoid composite index requirement
+    Query query = users;
     if (startDate != null) {
       query = query.where('joinDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
     }
@@ -594,7 +697,17 @@ class DatabaseService {
       query = query.where('joinDate', isLessThanOrEqualTo: Timestamp.fromDate(endDate));
     }
     final snapshot = await query.get();
-    return snapshot.docs.length;
+    
+    // Filter deleted users in memory
+    int count = 0;
+    for (final doc in snapshot.docs) {
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      final deleted = data['deleted'] ?? false;
+      if (!deleted) {
+        count++;
+      }
+    }
+    return count;
   }
 
   static Future<int> getActiveVetsCount({DateTime? startDate, DateTime? endDate}) async {
@@ -641,26 +754,6 @@ class DatabaseService {
       'cancelled': cancelled,
       'total': snapshot.docs.length,
     };
-  }
-
-  static Future<Map<String, int>> getCancellationReasons({DateTime? startDate, DateTime? endDate}) async {
-    var query = appointments.where('status', whereIn: ['cancelled', 'canceled']);
-    if (startDate != null) {
-      query = query.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
-    }
-    if (endDate != null) {
-      query = query.where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(endDate));
-    }
-    final snapshot = await query.get();
-    
-    final reasons = <String, int>{};
-    for (final doc in snapshot.docs) {
-      final data = doc.data() as Map<String, dynamic>;
-      final reason = (data['cancellationReason'] ?? data['reason'] ?? 'unknown').toString();
-      reasons[reason] = (reasons[reason] ?? 0) + 1;
-    }
-    
-    return reasons;
   }
 
   static Future<int> getContentReach({DateTime? startDate, DateTime? endDate}) async {
@@ -798,6 +891,132 @@ class DatabaseService {
     });
   }
 
+  // Recent Activities
+  static Future<List<Map<String, dynamic>>> getRecentActivities({int limit = 20}) async {
+    final activities = <Map<String, dynamic>>[];
+    
+    // Get recent content uploads
+    try {
+      final contentsSnap = await contents
+          .orderBy('createdAt', descending: true)
+          .limit(limit ~/ 4)
+          .get();
+      for (final doc in contentsSnap.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        activities.add({
+          'type': 'content_upload',
+          'id': doc.id,
+          'title': data['title'] ?? 'Content Upload',
+          'description': 'New content uploaded: ${data['title'] ?? 'Untitled'}',
+          'timestamp': data['createdAt'] ?? data['updatedAt'],
+          'metadata': {
+            'category': data['category'] ?? 'Unknown',
+            'status': data['status'] ?? 'Unknown',
+          },
+        });
+      }
+    } catch (e) {
+      // Ignore errors for missing fields
+    }
+    
+    // Get recent announcements
+    try {
+      final announcementsSnap = await notifications
+          .where('type', isEqualTo: 'announcement')
+          .orderBy('createdAt', descending: true)
+          .limit(limit ~/ 4)
+          .get();
+      for (final doc in announcementsSnap.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final status = data['status'] ?? 'sent';
+        activities.add({
+          'type': status == 'scheduled' ? 'announcement_scheduled' : 'announcement',
+          'id': doc.id,
+          'title': data['title'] ?? 'Announcement',
+          'description': status == 'scheduled' 
+              ? 'Announcement scheduled: ${data['title'] ?? 'Untitled'}'
+              : 'Announcement made: ${data['title'] ?? 'Untitled'}',
+          'timestamp': status == 'scheduled' 
+              ? (data['scheduledDate'] ?? data['createdAt'])
+              : data['createdAt'],
+          'metadata': {
+            'targetAudience': data['targetAudience'] ?? 'all',
+            'status': status,
+          },
+        });
+      }
+    } catch (e) {
+      // Ignore errors
+    }
+    
+    // Get recent payment notices (Pending payments)
+    try {
+      final paymentsSnap = await payments
+          .where('status', isEqualTo: 'Pending')
+          .orderBy('submissionTime', descending: true)
+          .limit(limit ~/ 4)
+          .get();
+      for (final doc in paymentsSnap.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        activities.add({
+          'type': 'payment_notice',
+          'id': doc.id,
+          'title': 'Payment Notice',
+          'description': 'New payment submission pending verification',
+          'timestamp': data['submissionTime'] ?? data['createdAt'],
+          'metadata': {
+            'transactionId': data['transactionId'] ?? '',
+            'amount': data['amount'] ?? 0,
+            'userId': data['userId'] ?? '',
+            'vetId': data['vetId'] ?? '',
+          },
+        });
+      }
+    } catch (e) {
+      // Ignore errors
+    }
+    
+    // Sort all activities by timestamp (most recent first)
+    activities.sort((a, b) {
+      final aTime = a['timestamp'];
+      final bTime = b['timestamp'];
+      if (aTime == null && bTime == null) return 0;
+      if (aTime == null) return 1;
+      if (bTime == null) return -1;
+      
+      DateTime aDate;
+      DateTime bDate;
+      
+      if (aTime is Timestamp) {
+        aDate = aTime.toDate();
+      } else if (aTime is String) {
+        try {
+          aDate = DateTime.parse(aTime);
+        } catch (e) {
+          return 1;
+        }
+      } else {
+        return 1;
+      }
+      
+      if (bTime is Timestamp) {
+        bDate = bTime.toDate();
+      } else if (bTime is String) {
+        try {
+          bDate = DateTime.parse(bTime);
+        } catch (e) {
+          return -1;
+        }
+      } else {
+        return -1;
+      }
+      
+      return bDate.compareTo(aDate);
+    });
+    
+    return activities.take(limit).toList();
+  }
+
   static Stream<QuerySnapshot> getContentsStream([String? sortBy]) {
     Query query = contents;
     if (sortBy != null) {
@@ -822,7 +1041,7 @@ class DatabaseService {
 
   static Future<void> updatePaymentStatus(String paymentId, String status, {String? adminId}) async {
     final updateData = <String, dynamic>{
-      'status': status, // Status should be "Pending", "Approved", or "Rejected"
+      'status': status, // Status should be "Pending", "Verified", or "Rejected"
     };
     
     if (adminId != null) {

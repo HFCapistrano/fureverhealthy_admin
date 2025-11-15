@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:furever_healthy_admin/services/database_service.dart';
+import '../config/firebase_config.dart';
 
 class DashboardProvider extends ChangeNotifier {
   // Dashboard Statistics
@@ -55,7 +56,26 @@ class DashboardProvider extends ChangeNotifier {
       // Placeholders until we wire real sources
       _activeAppointments = 0;
       _completedAppointments = _totalAppointments;
-      _revenue = 0.0;
+      
+      // Calculate revenue from verified payments
+      try {
+        final firestore = FirebaseConfig.firestore;
+        final paymentsSnap = await firestore.collection('payment')
+            .where('status', whereIn: ['Verified', 'Approved']) // Support both for compatibility
+            .get();
+        double revenue = 0.0;
+        for (final doc in paymentsSnap.docs) {
+          final data = doc.data();
+          final amount = data['amount'];
+          if (amount is num) {
+            revenue += amount.toDouble();
+          }
+        }
+        _revenue = revenue;
+      } catch (e) {
+        debugPrint('Error calculating revenue: $e');
+        _revenue = 0.0;
+      }
 
       // Simple placeholder series to avoid empty UI
       final today = DateTime.now();
@@ -72,12 +92,24 @@ class DashboardProvider extends ChangeNotifier {
         return {'date': d.toIso8601String().split('T').first, 'revenue': 0.0};
       });
       _topVets = [];
-      _recentActivities = [];
+      
+      // Load recent activities
+      await loadRecentActivities();
 
       notifyListeners();
     } catch (e) {
       // On error, keep previous values
       debugPrint('Dashboard load error: $e');
+    }
+  }
+
+  Future<void> loadRecentActivities({int limit = 20}) async {
+    try {
+      _recentActivities = await DatabaseService.getRecentActivities(limit: limit);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading recent activities: $e');
+      _recentActivities = [];
     }
   }
 

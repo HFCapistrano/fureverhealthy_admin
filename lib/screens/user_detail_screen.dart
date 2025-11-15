@@ -137,27 +137,9 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                                       ),
                                     ),
                                     Expanded(
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              email,
-                                              style: const TextStyle(fontSize: 16),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          ElevatedButton.icon(
-                                            onPressed: () => _sendPasswordResetEmail(context, email, name),
-                                            icon: const Icon(Icons.lock_reset, size: 16),
-                                            label: const Text('Send Reset Email'),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.orange,
-                                              foregroundColor: Colors.white,
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                              minimumSize: const Size(0, 36),
-                                            ),
-                                          ),
-                                        ],
+                                      child: Text(
+                                        email,
+                                        style: const TextStyle(fontSize: 16),
                                       ),
                                     ),
                                   ],
@@ -213,6 +195,10 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                                 const SizedBox(height: 16),
                                 _buildInfoRow('Join Date', joinDateStr),
                                 _buildInfoRow('Last Active', lastActiveStr),
+                                if (userData['userType'] != null) ...[
+                                  const SizedBox(height: 16),
+                                  _buildInfoRow('User Type', (userData['userType'] ?? 'regular').toString().toUpperCase()),
+                                ],
                               ],
                             ),
 
@@ -222,8 +208,8 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                             _buildSection(
                               'Pets Information',
                               [
-                                StreamBuilder<QuerySnapshot>(
-                                  stream: DatabaseService.getPetsByUserId(widget.userId),
+                                FutureBuilder<List<QueryDocumentSnapshot>>(
+                                  future: DatabaseService.getPetsByUserIdAsync(widget.userId),
                                   builder: (context, petsSnapshot) {
                                     if (petsSnapshot.connectionState ==
                                         ConnectionState.waiting) {
@@ -239,7 +225,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                                               'Error: ${petsSnapshot.error}'));
                                     }
 
-                                    final pets = petsSnapshot.data?.docs ?? [];
+                                    final pets = petsSnapshot.data ?? [];
                                     if (pets.isEmpty) {
                                       return Container(
                                         padding: const EdgeInsets.all(24),
@@ -275,8 +261,12 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                                                 as Map<String, dynamic>;
                                             final petName =
                                                 petData['name'] ?? 'Unknown';
-                                            final species =
-                                                petData['species'] ?? 'Unknown';
+                                            // Check for species field variations
+                                            final species = petData['species'] ?? 
+                                                petData['speciesType'] ?? 
+                                                (petData['medicalConcerns'] != null && petData['medicalConcerns'] is Map
+                                                    ? (petData['medicalConcerns'] as Map)['speciesType'] ?? 'Unknown'
+                                                    : 'Unknown');
                                             final breed =
                                                 petData['breedName'] ?? petData['breed'] ?? 'Unknown';
                                             // Calculate age from birthDate if available
@@ -387,124 +377,6 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                               ],
                             ),
 
-                            const SizedBox(height: 24),
-
-                            // Strike History Section
-                            _buildSection(
-                              'Strike History',
-                              [
-                                FutureBuilder<List<Map<String, dynamic>>>(
-                                  future: DatabaseService.getUserStrikeHistory(widget.userId),
-                                  builder: (context, snapshot) {
-                                    if (snapshot.connectionState == ConnectionState.waiting) {
-                                      return const Center(
-                                        child: Padding(
-                                          padding: EdgeInsets.all(24.0),
-                                          child: CircularProgressIndicator(),
-                                        ),
-                                      );
-                                    }
-                                    if (snapshot.hasError) {
-                                      return Center(
-                                        child: Text('Error: ${snapshot.error}'),
-                                      );
-                                    }
-
-                                    final strikes = snapshot.data ?? [];
-                                    if (strikes.isEmpty) {
-                                      return Container(
-                                        padding: const EdgeInsets.all(24),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.surfaceColor,
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(
-                                            color: AppTheme.borderColor,
-                                          ),
-                                        ),
-                                        child: const Center(
-                                          child: Text('No strike history found'),
-                                        ),
-                                      );
-                                    }
-
-                                    return Card(
-                                      child: SingleChildScrollView(
-                                        scrollDirection: Axis.horizontal,
-                                        child: DataTable(
-                                          columnSpacing: 24,
-                                          columns: const [
-                                            DataColumn(label: Text('Date')),
-                                            DataColumn(label: Text('Action')),
-                                            DataColumn(label: Text('Reason')),
-                                            DataColumn(label: Text('Admin')),
-                                          ],
-                                          rows: strikes.map((strike) {
-                                            final action = strike['action'] ?? 'unknown';
-                                            final reason = strike['reason'] ?? 'No reason provided';
-                                            final adminEmail = strike['adminEmail'] ?? 'Unknown';
-                                            final createdAt = strike['createdAt'];
-                                            
-                                            String dateStr = 'Unknown';
-                                            if (createdAt != null) {
-                                              if (createdAt is Timestamp) {
-                                                dateStr = createdAt.toDate().toString().substring(0, 16);
-                                              } else {
-                                                dateStr = createdAt.toString();
-                                              }
-                                            }
-                                            
-                                            Color actionColor = AppTheme.textSecondary;
-                                            IconData actionIcon = Icons.info;
-                                            if (action == 'warning') {
-                                              actionColor = Colors.orange;
-                                              actionIcon = Icons.warning;
-                                            } else if (action == 'mute') {
-                                              actionColor = Colors.blue;
-                                              actionIcon = Icons.volume_off;
-                                            } else if (action == 'suspension') {
-                                              actionColor = Colors.red;
-                                              actionIcon = Icons.block;
-                                            }
-                                            
-                                            return DataRow(
-                                              cells: [
-                                                DataCell(Text(dateStr)),
-                                                DataCell(
-                                                  Row(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      Icon(actionIcon, color: actionColor, size: 18),
-                                                      const SizedBox(width: 8),
-                                                      Text(
-                                                        action.toUpperCase(),
-                                                        style: TextStyle(
-                                                          color: actionColor,
-                                                          fontWeight: FontWeight.w600,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                                DataCell(
-                                                  SizedBox(
-                                                    width: 300,
-                                                    child: Text(
-                                                      reason,
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                ),
-                                                DataCell(Text(adminEmail)),
-                                              ],
-                                            );
-                                          }).toList(),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
                           ],
                         ),
                       ),
@@ -643,7 +515,12 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                     children: [
                       _buildPetDetailRow('Name', petData['name'] ?? 'Unknown'),
                       _buildPetDetailRow(
-                          'Species', petData['species'] ?? 'Unknown'),
+                          'Species', 
+                          petData['species'] ?? 
+                          petData['speciesType'] ?? 
+                          (petData['medicalConcerns'] != null && petData['medicalConcerns'] is Map
+                              ? (petData['medicalConcerns'] as Map)['speciesType'] ?? 'Unknown'
+                              : 'Unknown')),
                       _buildPetDetailRow('Breed', 
                           petData['breedName'] ?? petData['breed'] ?? 'Unknown'),
                       if (petData['birthDate'] != null && petData['birthDate'].toString().isNotEmpty)
@@ -736,142 +613,5 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     return timestamp.toString();
   }
 
-  void _sendPasswordResetEmail(BuildContext context, String email, String userName) {
-    final passwordController = TextEditingController();
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.lock_reset, color: Colors.orange),
-            SizedBox(width: 8),
-            Text('Send Password Reset Email'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Send password reset email to $userName?'),
-            const SizedBox(height: 8),
-            Text(
-              'Email: $email',
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: AppTheme.primaryColor,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: passwordController,
-              decoration: const InputDecoration(
-                labelText: 'Enter your admin password to confirm',
-                hintText: 'Type your admin password',
-                prefixIcon: Icon(Icons.lock),
-              ),
-              obscureText: true,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'This action will send a password reset email to the user.',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              passwordController.dispose();
-              Navigator.pop(context);
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () async {
-              final scaffoldMessenger = ScaffoldMessenger.of(context);
-              
-              if (passwordController.text.isEmpty) {
-                scaffoldMessenger.showSnackBar(
-                  const SnackBar(content: Text('Please enter your admin password')),
-                );
-                return;
-              }
-              
-              // Verify admin password
-              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
-              if (!isPasswordValid) {
-                scaffoldMessenger.showSnackBar(
-                  const SnackBar(content: Text('Invalid admin password')),
-                );
-                passwordController.clear();
-                return;
-              }
-              
-              // Show loading indicator
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => const AlertDialog(
-                  content: Row(
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(width: 16),
-                      Text('Sending password reset email...'),
-                    ],
-                  ),
-                ),
-              );
-              
-              try {
-                final success = await DatabaseService.sendPasswordResetEmail(email);
-                if (mounted) {
-                  Navigator.pop(context); // Close loading dialog
-                  Navigator.pop(context); // Close password dialog
-                  passwordController.dispose();
-                  
-                  if (success) {
-                    scaffoldMessenger.showSnackBar(
-                      SnackBar(
-                        content: Text('Password reset email sent to $userName'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  } else {
-                    scaffoldMessenger.showSnackBar(
-                      const SnackBar(
-                        content: Text('Failed to send password reset email'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              } catch (e) {
-                if (mounted) {
-                  Navigator.pop(context); // Close loading dialog
-                  Navigator.pop(context); // Close password dialog
-                  passwordController.dispose();
-                  scaffoldMessenger.showSnackBar(
-                    SnackBar(
-                      content: Text('Error sending password reset email: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
-            icon: const Icon(Icons.send),
-            label: const Text('Send Reset Email'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 

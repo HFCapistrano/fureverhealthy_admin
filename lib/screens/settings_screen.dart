@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:furever_healthy_admin/theme/app_theme.dart';
 import 'package:furever_healthy_admin/widgets/sidebar.dart';
 import 'package:furever_healthy_admin/services/database_service.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
+import 'package:furever_healthy_admin/providers/auth_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -13,13 +13,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  // Admin Settings
-  bool _notificationsEnabled = true;
-  bool _emailNotifications = true;
-  bool _pushNotifications = false;
-  
   // Security Settings
-  bool _twoFactorAuth = false;
   bool _sessionTimeout = true;
   int _sessionTimeoutMinutes = 30;
   bool _requireStrongPasswords = true;
@@ -29,28 +23,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _autoBackup = true;
   int _backupFrequency = 7; // days
   bool _maintenanceMode = false;
-  bool _systemMonitoring = true;
-  bool _autoUpdates = true;
-  
-  // Notification Settings
-  bool _userRegistrationNotifications = true;
-  bool _vetRegistrationNotifications = true;
-  bool _appointmentNotifications = true;
-  bool _systemAlerts = true;
-  bool _securityAlerts = true;
-  bool _performanceAlerts = true;
   
   // Data Management
   bool _dataRetentionEnabled = true;
   int _dataRetentionDays = 365;
   bool _anonymizeOldData = false;
-  
-  // Notification Management
-  int? _notificationThrottlePerDay = 50;
-  int? _notificationThrottlePerHour = 10;
-  
-  // Performance/Privacy
-  int? _attachmentSizeLimitMB = 10;
 
   @override
   Widget build(BuildContext context) {
@@ -107,91 +84,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // General Settings
-                        _buildSettingsSection(
-                          'General Settings',
-                          Icons.admin_panel_settings,
-                          [
-                            _buildSwitchSetting(
-                              'Enable Notifications',
-                              'Receive system notifications',
-                              _notificationsEnabled,
-                              (value) => setState(() => _notificationsEnabled = value),
-                            ),
-                            _buildSwitchSetting(
-                              'System Monitoring',
-                              'Monitor system performance and health',
-                              _systemMonitoring,
-                              (value) => setState(() => _systemMonitoring = value),
-                            ),
-                            _buildSwitchSetting(
-                              'Auto Updates',
-                              'Automatically update system components',
-                              _autoUpdates,
-                              (value) => setState(() => _autoUpdates = value),
-                            ),
-                          ],
-                        ),
-                        
-                        const SizedBox(height: 24),
-                        
-                        // Notification Settings
-                        _buildSettingsSection(
-                          'Notification Settings',
-                          Icons.notifications,
-                          [
-                            _buildSwitchSetting(
-                              'Email Notifications',
-                              'Receive notifications via email',
-                              _emailNotifications,
-                              (value) => setState(() => _emailNotifications = value),
-                            ),
-                            _buildSwitchSetting(
-                              'Push Notifications',
-                              'Receive push notifications',
-                              _pushNotifications,
-                              (value) => setState(() => _pushNotifications = value),
-                            ),
-                            _buildSwitchSetting(
-                              'User Registration',
-                              'Notify when new users register',
-                              _userRegistrationNotifications,
-                              (value) => setState(() => _userRegistrationNotifications = value),
-                            ),
-                            _buildSwitchSetting(
-                              'Vet Registration',
-                              'Notify when new vets register',
-                              _vetRegistrationNotifications,
-                              (value) => setState(() => _vetRegistrationNotifications = value),
-                            ),
-                            _buildSwitchSetting(
-                              'Appointments',
-                              'Notify about appointment updates',
-                              _appointmentNotifications,
-                              (value) => setState(() => _appointmentNotifications = value),
-                            ),
-                            _buildSwitchSetting(
-                              'System Alerts',
-                              'Receive system alerts and updates',
-                              _systemAlerts,
-                              (value) => setState(() => _systemAlerts = value),
-                            ),
-                            _buildSwitchSetting(
-                              'Security Alerts',
-                              'Notify about security events and breaches',
-                              _securityAlerts,
-                              (value) => setState(() => _securityAlerts = value),
-                            ),
-                            _buildSwitchSetting(
-                              'Performance Alerts',
-                              'Notify about system performance issues',
-                              _performanceAlerts,
-                              (value) => setState(() => _performanceAlerts = value),
-                            ),
-                          ],
-                        ),
-                        
-                        const SizedBox(height: 24),
                         
                         // Security Settings
                         _buildSettingsSection(
@@ -239,12 +131,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                             ),
                             const Divider(),
-                            _buildSwitchSetting(
-                              'Two-Factor Authentication',
-                              'Add an extra layer of security',
-                              _twoFactorAuth,
-                              (value) => setState(() => _twoFactorAuth = value),
-                            ),
                             _buildSwitchSetting(
                               'Session Timeout',
                               'Automatically log out after inactivity',
@@ -338,70 +224,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               'Enable maintenance mode for system updates',
                               _maintenanceMode,
                               (value) => setState(() => _maintenanceMode = value),
-                            ),
-                            _buildSwitchSetting(
-                              'System Monitoring',
-                              'Monitor system performance and health',
-                              _systemMonitoring,
-                              (value) => setState(() => _systemMonitoring = value),
-                            ),
-                          ],
-                        ),
-                        
-                        const SizedBox(height: 24),
-                        
-                        // Notification Throttle Settings
-                        _buildSettingsSection(
-                          'Notification Throttle Settings',
-                          Icons.notifications_active,
-                          [
-                            _buildSliderSetting(
-                              'Max Notifications per Day',
-                              'Limit notifications sent per day',
-                              (_notificationThrottlePerDay ?? 50).toDouble(),
-                              10.0,
-                              200.0,
-                              (value) => setState(() => _notificationThrottlePerDay = value.round()),
-                            ),
-                            _buildSliderSetting(
-                              'Max Notifications per Hour',
-                              'Limit notifications sent per hour',
-                              (_notificationThrottlePerHour ?? 10).toDouble(),
-                              1.0,
-                              50.0,
-                              (value) => setState(() => _notificationThrottlePerHour = value.round()),
-                            ),
-                          ],
-                        ),
-                        
-                        const SizedBox(height: 24),
-                        
-                        // Performance/Privacy Settings
-                        _buildSettingsSection(
-                          'Performance/Privacy Settings',
-                          Icons.settings_applications,
-                          [
-                            _buildSliderSetting(
-                              'Data Retention ($_dataRetentionDays days)',
-                              'How long to keep data before cleanup',
-                              _dataRetentionDays.toDouble(),
-                              30.0,
-                              1095.0,
-                              (value) => setState(() => _dataRetentionDays = value.round()),
-                            ),
-                            _buildSliderSetting(
-                              'Attachment Size Limit (${_attachmentSizeLimitMB ?? 10} MB)',
-                              'Maximum size for file attachments',
-                              (_attachmentSizeLimitMB ?? 10).toDouble(),
-                              1.0,
-                              100.0,
-                              (value) => setState(() => _attachmentSizeLimitMB = value.round()),
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton.icon(
-                              onPressed: () => _viewChangeLog(context),
-                              icon: const Icon(Icons.history),
-                              label: const Text('View Change Log'),
                             ),
                           ],
                         ),
@@ -736,7 +558,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               }
               
               // Verify admin password
-              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              final adminEmail = authProvider.userEmail ?? '';
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(adminEmail, passwordController.text);
               if (!isPasswordValid) {
                 scaffoldMessenger.showSnackBar(
                   const SnackBar(
@@ -778,10 +602,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _resetSettings() {
     setState(() {
-      _notificationsEnabled = true;
-      _emailNotifications = true;
-      _pushNotifications = false;
-      _twoFactorAuth = false;
       _sessionTimeout = true;
       _sessionTimeoutMinutes = 30;
       _requireStrongPasswords = true;
@@ -789,14 +609,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _autoBackup = true;
       _backupFrequency = 7;
       _maintenanceMode = false;
-      _systemMonitoring = true;
-      _autoUpdates = true;
-      _userRegistrationNotifications = true;
-      _vetRegistrationNotifications = true;
-      _appointmentNotifications = true;
-      _systemAlerts = true;
-      _securityAlerts = true;
-      _performanceAlerts = true;
       _dataRetentionEnabled = true;
       _dataRetentionDays = 365;
       _anonymizeOldData = false;
@@ -990,7 +802,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           }
 
                           try {
+                            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                            final adminEmail = authProvider.userEmail ?? '';
+                            if (adminEmail.isEmpty) {
+                              scaffoldMessenger.showSnackBar(
+                                const SnackBar(
+                                  content: Text('Unable to identify admin account'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+                            
                             final success = await DatabaseService.changeAdminPassword(
+                              adminEmail,
                               currentPasswordController.text,
                               newPasswordController.text,
                             );
@@ -1046,98 +871,4 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _viewChangeLog(BuildContext context) async {
-    try {
-      final history = await DatabaseService.getConfigHistory(limit: 50);
-      if (!mounted) return;
-
-      showDialog(
-        context: context,
-        builder: (context) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.7,
-            constraints: const BoxConstraints(maxWidth: 900),
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.history, color: AppTheme.primaryColor),
-                    SizedBox(width: 8),
-                    Text(
-                      'Change Log',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Expanded(
-                  child: history.isEmpty
-                      ? const Center(child: Text('No changes recorded'))
-                      : ListView.builder(
-                          itemCount: history.length,
-                          itemBuilder: (context, index) {
-                            final change = history[index];
-                            final changedAt = change['changedAt'] is Timestamp
-                                ? (change['changedAt'] as Timestamp).toDate()
-                                : DateTime.now();
-
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              child: ListTile(
-                                leading: const Icon(Icons.edit, color: AppTheme.primaryColor),
-                                title: Text(
-                                  '${change['setting'] ?? 'Unknown'}',
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Changed by: ${change['adminEmail'] ?? 'Unknown'}',
-                                      style: const TextStyle(fontSize: 12),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'From: ${change['oldValue'] ?? 'N/A'} → To: ${change['newValue'] ?? 'N/A'}',
-                                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                                    ),
-                                  ],
-                                ),
-                                trailing: Text(
-                                  DateFormat('MMM d, yyyy\nh:mm a').format(changedAt),
-                                  style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                                  textAlign: TextAlign.end,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Close'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading change log: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
 }

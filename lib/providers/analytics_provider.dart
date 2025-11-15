@@ -8,10 +8,12 @@ class AnalyticsProvider extends ChangeNotifier {
   AnalyticsData? _analyticsData;
   bool _isLoading = false;
   String? _error;
+  int _verifiedVetsCount = 0;
 
   AnalyticsData? get analyticsData => _analyticsData;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  int get verifiedVetsCount => _verifiedVetsCount;
 
   // Initialize with default data
   AnalyticsProvider() {
@@ -57,7 +59,7 @@ class AnalyticsProvider extends ChangeNotifier {
         DatabaseService.getAppointmentCount(),
         DatabaseService.getPetCount(),
         firestore.collection('vets').get(), // for avg rating, premiumVets
-        firestore.collection('pets').get(), // for dog/cat split
+        firestore.collection('petInfos').get(), // for all species distribution
         firestore.collection('petBreeds').get(), // for top breeds and count
         firestore.collection('appointments').get(), // for appointment trends
       ]);
@@ -67,7 +69,7 @@ class AnalyticsProvider extends ChangeNotifier {
       final totalAppointments = results[2] as int;
       // final totalPets = results[3] as int; // available if needed later
       final vetsSnap = results[4] as QuerySnapshot;
-      final petsSnap = results[5] as QuerySnapshot;
+      final petInfosSnap = results[5] as QuerySnapshot;
       final breedsSnap = results[6] as QuerySnapshot;
       final appointmentsSnap = results[7] as QuerySnapshot;
 
@@ -78,13 +80,24 @@ class AnalyticsProvider extends ChangeNotifier {
         premiumUsers = prem.docs.length;
       } catch (_) {}
 
-      // premium vets and avg rating
+      // premium vets, verified vets, and avg rating
       int premiumVets = 0;
+      int verifiedVets = 0;
       double ratingSum = 0.0;
       int ratingCount = 0;
       for (final d in vetsSnap.docs) {
         final data = d.data() as Map<String, dynamic>;
-        if ((data['userType'] ?? '') == 'premium') premiumVets++;
+        // Check for premium status
+        if ((data['userType'] ?? '').toString().toLowerCase() == 'premium' || 
+            (data['isPremium'] ?? false) == true) {
+          premiumVets++;
+        }
+        // Check for verified status
+        if ((data['verified'] ?? false) == true || 
+            (data['licenseVerified'] ?? false) == true ||
+            (data['verificationStatus'] ?? '').toString().toLowerCase() == 'verified') {
+          verifiedVets++;
+        }
         final r = data['rating'];
         if (r is num) {
           ratingSum += r.toDouble();
@@ -93,28 +106,57 @@ class AnalyticsProvider extends ChangeNotifier {
       }
       final averageRating = ratingCount == 0 ? 0.0 : (ratingSum / ratingCount);
 
-      // pet categories split (Dogs/Cats only)
-      int dogCount = 0;
-      int catCount = 0;
-      for (final d in petsSnap.docs) {
+      // pet species distribution - only Dogs and Cats from petInfos
+      int dogsCount = 0;
+      int catsCount = 0;
+      for (final d in petInfosSnap.docs) {
         final data = d.data() as Map<String, dynamic>;
-        final species = (data['species'] ?? '').toString();
-        if (species == 'Dog') dogCount++;
-        if (species == 'Cat') catCount++;
+        final species = (data['species'] ?? data['speciesType'] ?? '').toString().trim().toLowerCase();
+        // Check for dogs
+        if (species == 'dog' || species == 'dogs') {
+          dogsCount++;
+        }
+        // Check for cats
+        else if (species == 'cat' || species == 'cats') {
+          catsCount++;
+        }
       }
-      final totalSpecies = (dogCount + catCount);
-      final petCategories = <String, double>{
-        'Dogs': totalSpecies == 0 ? 0.0 : (dogCount / totalSpecies * 100).toDouble(),
-        'Cats': totalSpecies == 0 ? 0.0 : (catCount / totalSpecies * 100).toDouble(),
-      };
+      
+      // Calculate percentages for Dogs and Cats only
+      final totalDogsAndCats = dogsCount + catsCount;
+      final petCategories = <String, double>{};
+      if (totalDogsAndCats > 0) {
+        petCategories['Dogs'] = (dogsCount / totalDogsAndCats * 100).toDouble();
+        petCategories['Cats'] = (catsCount / totalDogsAndCats * 100).toDouble();
+      } else {
+        // If no dogs or cats, show 0% for both
+        petCategories['Dogs'] = 0.0;
+        petCategories['Cats'] = 0.0;
+      }
 
-      // top breeds (from petBreeds or from pets usage). Here: from petBreeds popularity if present
-      final List<Map<String, dynamic>> topBreeds = breedsSnap.docs.take(5).map((d) {
+      // top breeds - count actual usage from petInfos collection
+      final breedCounts = <String, int>{};
+      for (final d in petInfosSnap.docs) {
         final data = d.data() as Map<String, dynamic>;
+        final breed = (data['breedName'] ?? data['breed'] ?? '').toString().trim();
+        if (breed.isNotEmpty && breed != 'Unknown') {
+          breedCounts[breed] = (breedCounts[breed] ?? 0) + 1;
+        }
+      }
+      
+      // Sort breeds by count and take top 5-10
+      final sortedBreeds = breedCounts.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+      
+      final totalPetsWithBreeds = breedCounts.values.fold<int>(0, (sum, count) => sum + count);
+      final List<Map<String, dynamic>> topBreeds = sortedBreeds.take(10).map((entry) {
+        final percentage = totalPetsWithBreeds > 0 
+            ? (entry.value / totalPetsWithBreeds * 100).toDouble()
+            : 0.0;
         return {
-          'name': data['name'] ?? 'Unknown',
-          'count': 0, // unknown without usage aggregation
-          'percentage': 0.0,
+          'name': entry.key,
+          'count': entry.value,
+          'percentage': percentage,
         };
       }).toList();
 
@@ -159,7 +201,7 @@ class AnalyticsProvider extends ChangeNotifier {
         
         // Count the appointment for its date (or today if no date)
         if (appointmentTrends.containsKey(dateKey)) {
-          appointmentTrends[dateKey] = (appointmentTrends[dateKey] ?? 0) + 1;
+          appointmentTrends[dateKey] = appointmentTrends[dateKey]! + 1;
         } else {
           // If outside the 30-day window, add it to today's count to ensure it's visible
           final todayKey = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
@@ -201,7 +243,7 @@ class AnalyticsProvider extends ChangeNotifier {
       
       // Count users per day based on joinDate
       for (final doc in usersSnap.docs) {
-        final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data();
         final joinDate = data['joinDate'];
         if (joinDate != null) {
           DateTime userDate;
@@ -215,7 +257,7 @@ class AnalyticsProvider extends ChangeNotifier {
           
           final dateKey = '${userDate.year}-${userDate.month.toString().padLeft(2, '0')}-${userDate.day.toString().padLeft(2, '0')}';
           if (userGrowth.containsKey(dateKey)) {
-            userGrowth[dateKey] = (userGrowth[dateKey] ?? 0) + 1;
+            userGrowth[dateKey] = userGrowth[dateKey]! + 1;
           }
         }
       }
@@ -234,6 +276,25 @@ class AnalyticsProvider extends ChangeNotifier {
         userGrowth[todayKey] = totalUsers;
       }
 
+      // Calculate revenue from verified payments
+      double revenue = 0.0;
+      try {
+        final paymentsSnap = await firestore.collection('payment')
+            .where('status', whereIn: ['Verified', 'Approved']) // Support both for compatibility
+            .get();
+        for (final doc in paymentsSnap.docs) {
+          final data = doc.data();
+          final amount = data['amount'];
+          if (amount is num) {
+            revenue += amount.toDouble();
+          }
+        }
+      } catch (e) {
+        debugPrint('Error calculating revenue: $e');
+        // Fallback to persisted revenue if available
+        revenue = (persisted['revenue'] ?? 0).toDouble();
+      }
+
       // Build analytics data, preferring persisted values for charts if available
       final persistedMap = persisted;
       _analyticsData = AnalyticsData(
@@ -242,7 +303,7 @@ class AnalyticsProvider extends ChangeNotifier {
         activeVets: totalVets,
         premiumVets: premiumVets,
         totalAppointments: totalAppointments,
-        revenue: (persistedMap['revenue'] ?? 0).toDouble(),
+        revenue: revenue,
         averageRating: averageRating,
         petBreeds: breedsSnap.docs.length,
         petCategories: petCategories,
@@ -258,6 +319,9 @@ class AnalyticsProvider extends ChangeNotifier {
                 ? Map<String, int>.from((persistedMap['appointmentTrends'] as Map).map((k, v) => MapEntry(k.toString(), (v as num).toInt())))
                 : <String, int>{}),
       );
+      
+      // Store verified vets count for use in UI
+      _verifiedVetsCount = verifiedVets;
     } catch (e) {
       _error = 'Failed to load analytics data: $e';
       debugPrint('Error loading analytics data: $e');
@@ -388,8 +452,7 @@ class AnalyticsProvider extends ChangeNotifier {
 
   double get verifiedVetPercentage {
     if (_analyticsData?.activeVets == 0) return 0;
-    // Placeholder: using premium vets as proxy if verified not tracked
-    return (_analyticsData?.premiumVets ?? 0) / (_analyticsData?.activeVets ?? 1) * 100;
+    return _verifiedVetsCount / (_analyticsData?.activeVets ?? 1) * 100;
   }
 
   void clearError() {

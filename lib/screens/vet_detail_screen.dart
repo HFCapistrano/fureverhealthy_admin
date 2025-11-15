@@ -125,27 +125,9 @@ class _VetDetailScreenState extends State<VetDetailScreen> {
                                       ),
                                     ),
                                     Expanded(
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              email,
-                                              style: const TextStyle(fontSize: 16),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          ElevatedButton.icon(
-                                            onPressed: () => _sendPasswordResetEmail(context, email, name),
-                                            icon: const Icon(Icons.lock_reset, size: 16),
-                                            label: const Text('Send Reset Email'),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.orange,
-                                              foregroundColor: Colors.white,
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                              minimumSize: const Size(0, 36),
-                                            ),
-                                          ),
-                                        ],
+                                      child: Text(
+                                        email,
+                                        style: const TextStyle(fontSize: 16),
                                       ),
                                     ),
                                   ],
@@ -167,6 +149,8 @@ class _VetDetailScreenState extends State<VetDetailScreen> {
                                 _buildInfoRow('Education', education),
                                 _buildInfoRow('Rating', rating.toString()),
                                 _buildInfoRow('Number of Patients', patients.toString()),
+                                const SizedBox(height: 16),
+                                _buildServicesRow(vetData),
                                 if (bio.isNotEmpty) ...[
                                   const SizedBox(height: 16),
                                   const Text(
@@ -247,6 +231,12 @@ class _VetDetailScreenState extends State<VetDetailScreen> {
                                     ),
                                   ],
                                 ),
+                                const SizedBox(height: 16),
+                                _buildInfoRow('Account Status', status == 'active'
+                                    ? 'Active'
+                                    : status == 'inactive'
+                                        ? 'Inactive'
+                                        : 'Dormant'),
                               ],
                             ),
 
@@ -256,8 +246,8 @@ class _VetDetailScreenState extends State<VetDetailScreen> {
                             _buildSection(
                               'Patients Information',
                               [
-                                StreamBuilder<QuerySnapshot>(
-                                  stream: DatabaseService.getPetsByVetId(widget.vetId),
+                                FutureBuilder<List<QueryDocumentSnapshot>>(
+                                  future: DatabaseService.getPetsByVetIdAsync(widget.vetId),
                                   builder: (context, petsSnapshot) {
                                     if (petsSnapshot.connectionState ==
                                         ConnectionState.waiting) {
@@ -273,7 +263,7 @@ class _VetDetailScreenState extends State<VetDetailScreen> {
                                               'Error: ${petsSnapshot.error}'));
                                     }
 
-                                    final pets = petsSnapshot.data?.docs ?? [];
+                                    final pets = petsSnapshot.data ?? [];
                                     if (pets.isEmpty) {
                                       return Container(
                                         padding: const EdgeInsets.all(24),
@@ -309,8 +299,12 @@ class _VetDetailScreenState extends State<VetDetailScreen> {
                                                 as Map<String, dynamic>;
                                             final petName =
                                                 petData['name'] ?? 'Unknown';
-                                            final species =
-                                                petData['species'] ?? 'Unknown';
+                                            // Check for species field variations
+                                            final species = petData['species'] ?? 
+                                                petData['speciesType'] ?? 
+                                                (petData['medicalConcerns'] != null && petData['medicalConcerns'] is Map
+                                                    ? (petData['medicalConcerns'] as Map)['speciesType'] ?? 'Unknown'
+                                                    : 'Unknown');
                                             final breed =
                                                 petData['breedName'] ?? petData['breed'] ?? 'Unknown';
                                             // Calculate age from birthDate if available
@@ -520,6 +514,61 @@ class _VetDetailScreenState extends State<VetDetailScreen> {
     );
   }
 
+  Widget _buildServicesRow(Map<String, dynamic> vetData) {
+    final services = vetData['services'] ?? vetData['servicesProvided'] ?? [];
+    String servicesText = 'None';
+    
+    if (services != null) {
+      if (services is List) {
+        if (services.isNotEmpty) {
+          servicesText = services.join(', ');
+        }
+      } else if (services is String && services.isNotEmpty) {
+        servicesText = services;
+      }
+    }
+    
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 150,
+            child: Text(
+              'Services Provided',
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ),
+          Expanded(
+            child: services is List && services.isNotEmpty
+                ? Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: List<dynamic>.from(services).map<Widget>((service) {
+                      return Chip(
+                        label: Text(service.toString()),
+                        backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                        labelStyle: TextStyle(
+                          color: AppTheme.primaryColor,
+                          fontSize: 12,
+                        ),
+                      );
+                    }).toList(),
+                  )
+                : Text(
+                    servicesText,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _viewPetDetails(
       BuildContext context, String petId, Map<String, dynamic> petData) {
     showDialog(
@@ -558,7 +607,12 @@ class _VetDetailScreenState extends State<VetDetailScreen> {
                     children: [
                       _buildPetDetailRow('Name', petData['name'] ?? 'Unknown'),
                       _buildPetDetailRow(
-                          'Species', petData['species'] ?? 'Unknown'),
+                          'Species', 
+                          petData['species'] ?? 
+                          petData['speciesType'] ?? 
+                          (petData['medicalConcerns'] != null && petData['medicalConcerns'] is Map
+                              ? (petData['medicalConcerns'] as Map)['speciesType'] ?? 'Unknown'
+                              : 'Unknown')),
                       _buildPetDetailRow('Breed', 
                           petData['breedName'] ?? petData['breed'] ?? 'Unknown'),
                       if (petData['birthDate'] != null && petData['birthDate'].toString().isNotEmpty)
@@ -651,142 +705,5 @@ class _VetDetailScreenState extends State<VetDetailScreen> {
     return timestamp.toString();
   }
 
-  void _sendPasswordResetEmail(BuildContext context, String email, String vetName) {
-    final passwordController = TextEditingController();
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.lock_reset, color: Colors.orange),
-            SizedBox(width: 8),
-            Text('Send Password Reset Email'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Send password reset email to $vetName?'),
-            const SizedBox(height: 8),
-            Text(
-              'Email: $email',
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: AppTheme.primaryColor,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: passwordController,
-              decoration: const InputDecoration(
-                labelText: 'Enter your admin password to confirm',
-                hintText: 'Type your admin password',
-                prefixIcon: Icon(Icons.lock),
-              ),
-              obscureText: true,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'This action will send a password reset email to the veterinarian.',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              passwordController.dispose();
-              Navigator.pop(context);
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () async {
-              final scaffoldMessenger = ScaffoldMessenger.of(context);
-              
-              if (passwordController.text.isEmpty) {
-                scaffoldMessenger.showSnackBar(
-                  const SnackBar(content: Text('Please enter your admin password')),
-                );
-                return;
-              }
-              
-              // Verify admin password
-              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
-              if (!isPasswordValid) {
-                scaffoldMessenger.showSnackBar(
-                  const SnackBar(content: Text('Invalid admin password')),
-                );
-                passwordController.clear();
-                return;
-              }
-              
-              // Show loading indicator
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => const AlertDialog(
-                  content: Row(
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(width: 16),
-                      Text('Sending password reset email...'),
-                    ],
-                  ),
-                ),
-              );
-              
-              try {
-                final success = await DatabaseService.sendPasswordResetEmail(email);
-                if (mounted) {
-                  Navigator.pop(context); // Close loading dialog
-                  Navigator.pop(context); // Close password dialog
-                  passwordController.dispose();
-                  
-                  if (success) {
-                    scaffoldMessenger.showSnackBar(
-                      SnackBar(
-                        content: Text('Password reset email sent to $vetName'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  } else {
-                    scaffoldMessenger.showSnackBar(
-                      const SnackBar(
-                        content: Text('Failed to send password reset email'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              } catch (e) {
-                if (mounted) {
-                  Navigator.pop(context); // Close loading dialog
-                  Navigator.pop(context); // Close password dialog
-                  passwordController.dispose();
-                  scaffoldMessenger.showSnackBar(
-                    SnackBar(
-                      content: Text('Error sending password reset email: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
-            icon: const Icon(Icons.send),
-            label: const Text('Send Reset Email'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 

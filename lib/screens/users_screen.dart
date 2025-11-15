@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:furever_healthy_admin/theme/app_theme.dart';
 import 'package:furever_healthy_admin/widgets/sidebar.dart';
 import 'package:furever_healthy_admin/services/database_service.dart';
+import 'package:furever_healthy_admin/providers/auth_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UsersScreen extends StatefulWidget {
@@ -15,7 +17,6 @@ class UsersScreen extends StatefulWidget {
 class _UsersScreenState extends State<UsersScreen> {
   String _searchQuery = '';
   String _statusFilter = 'all';
-  bool _showDeleted = false;
   String _sortBy = 'name'; // 'name', 'email', 'joinDate', 'status'
   
   // Scroll controllers for proper scroll bar control
@@ -40,7 +41,7 @@ class _UsersScreenState extends State<UsersScreen> {
       final matchesSearch = name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           email.toLowerCase().contains(_searchQuery.toLowerCase());
       final matchesStatus = _statusFilter == 'all' || status == _statusFilter;
-      final matchesDeleted = _showDeleted ? true : !deleted;
+      final matchesDeleted = !deleted; // Always exclude deleted users
       
       return matchesSearch && matchesStatus && matchesDeleted;
     }).toList();
@@ -300,7 +301,9 @@ class _UsersScreenState extends State<UsersScreen> {
               }
               
               // Verify admin password
-              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              final adminEmail = authProvider.userEmail ?? '';
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(adminEmail, passwordController.text);
               if (!isPasswordValid) {
                 scaffoldMessenger.showSnackBar(
                   const SnackBar(content: Text('Invalid admin password')),
@@ -608,7 +611,9 @@ class _UsersScreenState extends State<UsersScreen> {
                 return;
               }
               
-              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              final adminEmail = authProvider.userEmail ?? '';
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(adminEmail, passwordController.text);
               if (!isPasswordValid) {
                 scaffoldMessenger.showSnackBar(
                   const SnackBar(
@@ -718,7 +723,9 @@ class _UsersScreenState extends State<UsersScreen> {
                 return;
               }
               
-              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              final adminEmail = authProvider.userEmail ?? '';
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(adminEmail, passwordController.text);
               if (!isPasswordValid) {
                 scaffoldMessenger.showSnackBar(
                   const SnackBar(
@@ -828,7 +835,9 @@ class _UsersScreenState extends State<UsersScreen> {
                 return;
               }
               
-              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              final adminEmail = authProvider.userEmail ?? '';
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(adminEmail, passwordController.text);
               if (!isPasswordValid) {
                 scaffoldMessenger.showSnackBar(
                   const SnackBar(
@@ -1158,22 +1167,6 @@ class _UsersScreenState extends State<UsersScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 16),
-                                  
-                                  // Show Deleted Toggle
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Checkbox(
-                                        value: _showDeleted,
-                                        onChanged: (value) {
-                                          setState(() {
-                                            _showDeleted = value ?? false;
-                                          });
-                                        },
-                                      ),
-                                      const Text('Show Deleted'),
-                                    ],
-                                  ),
                                 ],
                               ),
                             ),
@@ -1186,7 +1179,7 @@ class _UsersScreenState extends State<UsersScreen> {
                         Expanded(
                           child: Card(
                             child: StreamBuilder<QuerySnapshot>(
-                              stream: DatabaseService.getUsersStream(includeDeleted: _showDeleted),
+                              stream: DatabaseService.getUsersStream(),
                               builder: (context, snapshot) {
                                 if (snapshot.connectionState == ConnectionState.waiting) {
                                   return const Center(child: CircularProgressIndicator());

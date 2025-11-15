@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:furever_healthy_admin/theme/app_theme.dart';
 import 'package:furever_healthy_admin/widgets/sidebar.dart';
 import 'package:furever_healthy_admin/services/database_service.dart';
+import 'package:furever_healthy_admin/providers/auth_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class VetsScreen extends StatefulWidget {
@@ -609,7 +611,9 @@ class _VetsScreenState extends State<VetsScreen> {
               }
               
               // Verify admin password
-              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              final adminEmail = authProvider.userEmail ?? '';
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(adminEmail, passwordController.text);
               if (!isPasswordValid) {
                 scaffoldMessenger.showSnackBar(
                   const SnackBar(content: Text('Invalid admin password')),
@@ -1292,7 +1296,9 @@ class _VetsScreenState extends State<VetsScreen> {
                                       ),
                                       ElevatedButton.icon(
                                         onPressed: () async {
-                                          final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+                                          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                                          final adminEmail = authProvider.userEmail ?? '';
+                                          final isPasswordValid = await DatabaseService.verifyAdminPassword(adminEmail, passwordController.text);
                                           if (!isPasswordValid) {
                                             ScaffoldMessenger.of(context).showSnackBar(
                                               const SnackBar(
@@ -1348,50 +1354,6 @@ class _VetsScreenState extends State<VetsScreen> {
                             ),
                             const SizedBox(width: 8),
                           ],
-                          ElevatedButton.icon(
-                            onPressed: () async {
-                              try {
-                                final snapshot = await DatabaseService.vets.get();
-                                final vets = snapshot.docs.map((doc) {
-                                  final data = doc.data() as Map<String, dynamic>;
-                                  data['id'] = doc.id;
-                                  return data;
-                                }).toList();
-                                
-                                final csv = await DatabaseService.exportVetsToCSV(vets);
-                                
-                                // In a real app, you would save this to a file or download it
-                                // For now, show it in a dialog
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    title: const Text('Export CSV'),
-                                    content: SelectableText(csv),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: const Text('Close'),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              } catch (e) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Error exporting: $e'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                            },
-                            icon: const Icon(Icons.download),
-                            label: const Text('Export CSV'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
                           ElevatedButton.icon(
                             onPressed: () => _addVet(context),
                             icon: const Icon(Icons.add),
@@ -1581,18 +1543,21 @@ class _VetsScreenState extends State<VetsScreen> {
                                               columnSpacing: 24,
                                               columns: [
                                                 DataColumn(
-                                                  label: Checkbox(
-                                                    value: _selectedVetIds.length == filtered.length && filtered.isNotEmpty,
-                                                    tristate: _selectedVetIds.isNotEmpty && _selectedVetIds.length < filtered.length,
-                                                    onChanged: (value) {
-                                                      setState(() {
-                                                        if (value == true) {
-                                                          _selectedVetIds = Set.from(filtered.map((doc) => doc.id));
-                                                        } else {
-                                                          _selectedVetIds.clear();
-                                                        }
-                                                      });
-                                                    },
+                                                  label: Padding(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                                    child: Checkbox(
+                                                      value: _selectedVetIds.length == filtered.length && filtered.isNotEmpty,
+                                                      tristate: _selectedVetIds.isNotEmpty && _selectedVetIds.length < filtered.length,
+                                                      onChanged: (value) {
+                                                        setState(() {
+                                                          if (value == true) {
+                                                            _selectedVetIds = Set.from(filtered.map((doc) => doc.id));
+                                                          } else {
+                                                            _selectedVetIds.clear();
+                                                          }
+                                                        });
+                                                      },
+                                                    ),
                                                   ),
                                                 ),
                                                 const DataColumn(label: Text('View')),
@@ -1627,17 +1592,20 @@ class _VetsScreenState extends State<VetsScreen> {
                                         return DataRow(
                                           cells: [
                                             DataCell(
-                                              Checkbox(
-                                                value: _selectedVetIds.contains(doc.id),
-                                                onChanged: (value) {
-                                                  setState(() {
-                                                    if (value == true) {
-                                                      _selectedVetIds.add(doc.id);
-                                                    } else {
-                                                      _selectedVetIds.remove(doc.id);
-                                                    }
-                                                  });
-                                                },
+                                              Padding(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                                child: Checkbox(
+                                                  value: _selectedVetIds.contains(doc.id),
+                                                  onChanged: (value) {
+                                                    setState(() {
+                                                      if (value == true) {
+                                                        _selectedVetIds.add(doc.id);
+                                                      } else {
+                                                        _selectedVetIds.remove(doc.id);
+                                                      }
+                                                    });
+                                                  },
+                                                ),
                                               ),
                                             ),
                                             DataCell(
