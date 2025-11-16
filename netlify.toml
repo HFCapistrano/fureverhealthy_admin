@@ -1,5 +1,5 @@
 [build]
-  command = "flutter build web --release"
+  command = "bash netlify/install_flutter.sh && flutter build web --release"
   publish = "build/web"
 
 [build.environment]
