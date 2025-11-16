@@ -82,7 +82,7 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> login(String email, String password) async {
     try {
       // Verify admin password
-      final isValidPassword = await DatabaseService.verifyAdminPassword(password);
+      final isValidPassword = await DatabaseService.verifyAdminPassword(email, password);
       if (!isValidPassword) {
         return false;
       }

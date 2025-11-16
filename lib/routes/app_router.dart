@@ -7,15 +7,11 @@ import 'package:furever_healthy_admin/screens/dashboard_screen.dart';
 import 'package:furever_healthy_admin/screens/users_screen.dart';
 import 'package:furever_healthy_admin/screens/vets_screen.dart';
 import 'package:furever_healthy_admin/screens/analytics_screen.dart';
-import 'package:furever_healthy_admin/screens/pet_breeds_screen.dart';
 import 'package:furever_healthy_admin/screens/settings_screen.dart';
-import 'package:furever_healthy_admin/screens/feedbacks_screen.dart';
 import 'package:furever_healthy_admin/screens/community_screen.dart';
 import 'package:furever_healthy_admin/screens/user_detail_screen.dart';
 import 'package:furever_healthy_admin/screens/vet_detail_screen.dart';
 import 'package:furever_healthy_admin/screens/admin_management_screen.dart';
-import 'package:furever_healthy_admin/screens/contents_screen.dart';
-import 'package:furever_healthy_admin/screens/content_editor_screen.dart';
 import 'package:furever_healthy_admin/screens/payment_tracker_screen.dart';
 
 class AppRouter {
@@ -67,19 +63,9 @@ class AppRouter {
         builder: (context, state) => const AnalyticsScreen(),
       ),
       GoRoute(
-        path: '/pet-breeds',
-        name: 'pet-breeds',
-        builder: (context, state) => const PetBreedsScreen(),
-      ),
-      GoRoute(
         path: '/settings',
         name: 'settings',
         builder: (context, state) => const SettingsScreen(),
-      ),
-      GoRoute(
-        path: '/feedbacks',
-        name: 'feedbacks',
-        builder: (context, state) => const FeedbacksScreen(),
       ),
       GoRoute(
         path: '/community',
@@ -106,24 +92,6 @@ class AppRouter {
         path: '/admin-management',
         name: 'admin-management',
         builder: (context, state) => const AdminManagementScreen(),
-      ),
-      GoRoute(
-        path: '/contents',
-        name: 'contents',
-        builder: (context, state) => const ContentsScreen(),
-      ),
-      GoRoute(
-        path: '/contents/new',
-        name: 'content-new',
-        builder: (context, state) => const ContentEditorScreen(),
-      ),
-      GoRoute(
-        path: '/contents/:contentId/edit',
-        name: 'content-edit',
-        builder: (context, state) {
-          final contentId = state.pathParameters['contentId']!;
-          return ContentEditorScreen(contentId: contentId);
-        },
       ),
       GoRoute(
         path: '/payment-tracker',

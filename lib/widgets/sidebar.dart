@@ -105,23 +105,6 @@ class _SidebarState extends State<Sidebar> {
                       route: '/analytics',
                       isActive: currentLocation == '/analytics',
                     ),
-                    _buildMenuItem(
-                      context,
-                      icon: Icons.pets,
-                      title: 'Pet Breeds',
-                      route: '/pet-breeds',
-                      isActive: currentLocation == '/pet-breeds',
-                    ),
-                    PermissionGate(
-                      permission: 'feedbacks.view',
-                      child: _buildMenuItem(
-                        context,
-                        icon: Icons.feedback,
-                        title: 'Feedbacks',
-                        route: '/feedbacks',
-                        isActive: currentLocation == '/feedbacks',
-                      ),
-                    ),
                     PermissionGate(
                       permission: 'community.view',
                       child: _buildMenuItem(
@@ -130,17 +113,6 @@ class _SidebarState extends State<Sidebar> {
                         title: 'Community',
                         route: '/community',
                         isActive: currentLocation == '/community',
-                      ),
-                    ),
-                    PermissionGate(
-                      permission: 'contents.view',
-                      child: _buildMenuItem(
-                        context,
-                        icon: Icons.article,
-                        title: 'Contents',
-                        route: '/contents',
-                        isActive: currentLocation == '/contents' || 
-                                 currentLocation.startsWith('/contents/'),
                       ),
                     ),
                     _buildMenuItem(

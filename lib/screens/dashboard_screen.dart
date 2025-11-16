@@ -196,7 +196,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         
                         const SizedBox(height: 32),
                         
-                        // Navigation Test Buttons
+                        // Timeline View for Recent Activities
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Recent Activities Timeline',
+                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Consumer<DashboardProvider>(
+                                  builder: (context, dashboardProvider, child) {
+                                    final activities = dashboardProvider.recentActivities;
+                                    if (activities.isEmpty) {
+                                      return const Center(
+                                        child: Padding(
+                                          padding: EdgeInsets.all(24.0),
+                                          child: Text('No recent activities'),
+                                        ),
+                                      );
+                                    }
+                                    return _buildTimelineView(context, activities);
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -207,6 +238,203 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildTimelineView(BuildContext context, List<Map<String, dynamic>> activities) {
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: activities.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 0),
+      itemBuilder: (context, index) {
+        final activity = activities[index];
+        final isLast = index == activities.length - 1;
+        return _buildTimelineItem(context, activity, isLast);
+      },
+    );
+  }
+
+  Widget _buildTimelineItem(BuildContext context, Map<String, dynamic> activity, bool isLast) {
+    final timestamp = activity['timestamp'];
+    DateTime activityTime;
+    
+    if (timestamp is DateTime) {
+      activityTime = timestamp;
+    } else if (timestamp != null) {
+      try {
+        activityTime = DateTime.parse(timestamp.toString());
+      } catch (e) {
+        activityTime = DateTime.now();
+      }
+    } else {
+      activityTime = DateTime.now();
+    }
+
+    final timeAgo = _getTimeAgo(activityTime);
+    final type = activity['type'] ?? 'info';
+    final title = activity['title'] ?? 'Activity';
+    final description = activity['description'] ?? '';
+    final metadata = activity['metadata'] as Map<String, dynamic>? ?? {};
+
+    IconData icon;
+    Color iconColor;
+    
+    switch (type) {
+      case 'payment_notice':
+        icon = Icons.payment;
+        iconColor = AppTheme.successColor;
+        break;
+      case 'registration':
+        icon = Icons.person_add;
+        iconColor = AppTheme.primaryColor;
+        break;
+      case 'vet_join':
+        icon = Icons.medical_services;
+        iconColor = AppTheme.secondaryColor;
+        break;
+      case 'appointment':
+        icon = Icons.calendar_today;
+        iconColor = AppTheme.warningColor;
+        break;
+      default:
+        icon = Icons.info;
+        iconColor = AppTheme.textSecondary;
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Timeline line and dot
+        Column(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+                border: Border.all(color: iconColor, width: 2),
+              ),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+            if (!isLast)
+              Container(
+                width: 2,
+                height: 60,
+                color: AppTheme.borderColor,
+                margin: const EdgeInsets.symmetric(vertical: 4),
+              ),
+          ],
+        ),
+        const SizedBox(width: 16),
+        // Activity content
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      timeAgo,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                if (metadata.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.backgroundColor,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: AppTheme.borderColor),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (metadata['transactionId'] != null)
+                          _buildMetadataRow('Transaction ID', metadata['transactionId'].toString()),
+                        if (metadata['amount'] != null)
+                          _buildMetadataRow('Amount', '\$${metadata['amount']}'),
+                        if (metadata['userName'] != null)
+                          _buildMetadataRow('User', metadata['userName'].toString()),
+                        if (metadata['vetName'] != null)
+                          _buildMetadataRow('Vet', metadata['vetName'].toString()),
+                        if (metadata['petName'] != null)
+                          _buildMetadataRow('Pet', metadata['petName'].toString()),
+                        if (metadata['appointmentId'] != null)
+                          _buildMetadataRow('Appointment ID', metadata['appointmentId'].toString()),
+                        if (metadata['clinic'] != null)
+                          _buildMetadataRow('Clinic', metadata['clinic'].toString()),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetadataRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Text(
+            '$label: ',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getTimeAgo(DateTime time) {
+    final now = DateTime.now();
+    final difference = now.difference(time);
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else {
+      return '${difference.inDays}d ago';
+    }
   }
 
   Widget _buildSimpleStat(String title, String value, IconData icon, Color color) {

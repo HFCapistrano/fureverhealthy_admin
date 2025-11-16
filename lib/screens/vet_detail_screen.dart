@@ -533,11 +533,11 @@ class _VetDetailScreenState extends State<VetDetailScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
+          const SizedBox(
             width: 150,
             child: Text(
               'Services Provided',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 color: AppTheme.textSecondary,
               ),
@@ -552,7 +552,7 @@ class _VetDetailScreenState extends State<VetDetailScreen> {
                       return Chip(
                         label: Text(service.toString()),
                         backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                        labelStyle: TextStyle(
+                        labelStyle: const TextStyle(
                           color: AppTheme.primaryColor,
                           fontSize: 12,
                         ),

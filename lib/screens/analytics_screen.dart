@@ -928,7 +928,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           ),
         ),
         Text(
-          '$percentage%',
+          '${percentage.toStringAsFixed(2)}%',
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 14,
@@ -1096,22 +1096,25 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final premiumUsers = analyticsData.premiumUsers;
     final totalVets = analyticsData.activeVets;
     final premiumVets = analyticsData.premiumVets;
+    final regularUsers = (totalUsers - premiumUsers).clamp(0, totalUsers);
+    final regularVets = (totalVets - premiumVets).clamp(0, totalVets);
 
     return Column(
       children: [
         _buildComparisonBar('Premium Users', premiumUsers, totalUsers, Colors.amber),
         const SizedBox(height: 12),
-        _buildComparisonBar('Regular Users', totalUsers - premiumUsers, totalUsers, Colors.blue),
+        _buildComparisonBar('Regular Users', regularUsers, totalUsers, Colors.blue),
         const SizedBox(height: 12),
         _buildComparisonBar('Premium Vets', premiumVets, totalVets, Colors.purple),
         const SizedBox(height: 12),
-        _buildComparisonBar('Regular Vets', totalVets - premiumVets, totalVets, Colors.green),
+        _buildComparisonBar('Regular Vets', regularVets, totalVets, Colors.green),
       ],
     );
   }
 
   Widget _buildComparisonBar(String label, int value, int total, Color color) {
-    final percentage = (value / total * 100).round();
+    final percentage = total > 0 ? (value / total * 100).round() : 0;
+    final widthFactor = total > 0 ? (value / total).clamp(0.0, 1.0) : 0.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1138,7 +1141,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           ),
           child: FractionallySizedBox(
             alignment: Alignment.centerLeft,
-            widthFactor: value / total,
+            widthFactor: widthFactor,
             child: Container(
               decoration: BoxDecoration(
                 color: color,

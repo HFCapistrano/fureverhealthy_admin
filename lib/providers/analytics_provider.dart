@@ -73,12 +73,22 @@ class AnalyticsProvider extends ChangeNotifier {
       final breedsSnap = results[6] as QuerySnapshot;
       final appointmentsSnap = results[7] as QuerySnapshot;
 
-      // premium users (optional flag isPremium on users). If not present, 0.
+      // premium users - check both isPremium flag and userType field
       int premiumUsers = 0;
       try {
-        final prem = await firestore.collection('users').where('isPremium', isEqualTo: true).get();
-        premiumUsers = prem.docs.length;
-      } catch (_) {}
+        final usersSnap = await firestore.collection('users').get();
+        for (final doc in usersSnap.docs) {
+          final data = doc.data() as Map<String, dynamic>?;
+          if (data != null) {
+            if ((data['isPremium'] ?? false) == true ||
+                (data['userType'] ?? '').toString().toLowerCase() == 'premium') {
+              premiumUsers++;
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error counting premium users: $e');
+      }
 
       // premium vets, verified vets, and avg rating
       int premiumVets = 0;
@@ -87,19 +97,22 @@ class AnalyticsProvider extends ChangeNotifier {
       int ratingCount = 0;
       for (final d in vetsSnap.docs) {
         final data = d.data() as Map<String, dynamic>;
-        // Check for premium status
-        if ((data['userType'] ?? '').toString().toLowerCase() == 'premium' || 
-            (data['isPremium'] ?? false) == true) {
+        // Check for premium status - handle null/empty cases
+        final userType = (data['userType'] ?? '').toString().trim().toLowerCase();
+        final isPremium = data['isPremium'] ?? false;
+        if (userType == 'premium' || isPremium == true) {
           premiumVets++;
         }
-        // Check for verified status
-        if ((data['verified'] ?? false) == true || 
-            (data['licenseVerified'] ?? false) == true ||
-            (data['verificationStatus'] ?? '').toString().toLowerCase() == 'verified') {
+        // Check for verified status - handle multiple field variations
+        final verified = data['verified'] ?? false;
+        final licenseVerified = data['licenseVerified'] ?? false;
+        final verificationStatus = (data['verificationStatus'] ?? '').toString().trim().toLowerCase();
+        if (verified == true || licenseVerified == true || verificationStatus == 'verified') {
           verifiedVets++;
         }
+        // Handle rating - ensure it's a valid number
         final r = data['rating'];
-        if (r is num) {
+        if (r != null && r is num && r.isFinite) {
           ratingSum += r.toDouble();
           ratingCount++;
         }
@@ -122,12 +135,12 @@ class AnalyticsProvider extends ChangeNotifier {
         }
       }
       
-      // Calculate percentages for Dogs and Cats only
+      // Calculate percentages for Dogs and Cats only - rounded to 2 decimals
       final totalDogsAndCats = dogsCount + catsCount;
       final petCategories = <String, double>{};
       if (totalDogsAndCats > 0) {
-        petCategories['Dogs'] = (dogsCount / totalDogsAndCats * 100).toDouble();
-        petCategories['Cats'] = (catsCount / totalDogsAndCats * 100).toDouble();
+        petCategories['Dogs'] = double.parse((dogsCount / totalDogsAndCats * 100).toStringAsFixed(2));
+        petCategories['Cats'] = double.parse((catsCount / totalDogsAndCats * 100).toStringAsFixed(2));
       } else {
         // If no dogs or cats, show 0% for both
         petCategories['Dogs'] = 0.0;

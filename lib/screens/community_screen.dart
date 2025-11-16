@@ -153,7 +153,9 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                 return;
               }
               
-              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              final adminEmail = authProvider.userEmail ?? '';
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(adminEmail, passwordController.text);
               if (!isPasswordValid) {
                 scaffoldMessenger.showSnackBar(
                   const SnackBar(
@@ -261,7 +263,9 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                 return;
               }
               
-              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              final adminEmail = authProvider.userEmail ?? '';
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(adminEmail, passwordController.text);
               if (!isPasswordValid) {
                 scaffoldMessenger.showSnackBar(
                   const SnackBar(
@@ -369,7 +373,9 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                 return;
               }
               
-              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              final adminEmail = authProvider.userEmail ?? '';
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(adminEmail, passwordController.text);
               if (!isPasswordValid) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -382,7 +388,6 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
               }
               
               try {
-                final authProvider = Provider.of<AuthProvider>(context, listen: false);
                 await DatabaseService.muteUser(userId, reasonController.text);
                 await DatabaseService.addStrike(
                   userId,
@@ -497,7 +502,9 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                 return;
               }
               
-              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              final adminEmail = authProvider.userEmail ?? '';
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(adminEmail, passwordController.text);
               if (!isPasswordValid) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -510,7 +517,6 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
               }
               
               try {
-                final authProvider = Provider.of<AuthProvider>(context, listen: false);
                 await DatabaseService.escalateToSuspension(userId, reasonController.text);
                 await DatabaseService.addStrike(
                   userId,
@@ -617,7 +623,9 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                 return;
               }
               
-              final isPasswordValid = await DatabaseService.verifyAdminPassword(passwordController.text);
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              final adminEmail = authProvider.userEmail ?? '';
+              final isPasswordValid = await DatabaseService.verifyAdminPassword(adminEmail, passwordController.text);
               if (!isPasswordValid) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -630,7 +638,6 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
               }
               
               try {
-                final authProvider = Provider.of<AuthProvider>(context, listen: false);
                 await DatabaseService.addStrike(
                   userId,
                   reasonController.text,
