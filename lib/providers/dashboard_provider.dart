@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:furever_healthy_admin/services/database_service.dart';
 import '../config/firebase_config.dart';
@@ -19,6 +20,9 @@ class DashboardProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _topVets = [];
   List<Map<String, dynamic>> _recentActivities = [];
 
+  // Stream subscriptions for real-time updates
+  StreamSubscription<int>? _petCountSubscription;
+
   // Getters
   int get totalUsers => _totalUsers;
   int get totalVets => _totalVets;
@@ -36,6 +40,26 @@ class DashboardProvider extends ChangeNotifier {
 
   DashboardProvider() {
     loadLiveData();
+    _setupRealTimeListeners();
+  }
+
+  void _setupRealTimeListeners() {
+    // Listen to real-time pet count changes
+    _petCountSubscription = DatabaseService.getPetCountStream().listen(
+      (count) {
+        _totalPets = count;
+        notifyListeners();
+      },
+      onError: (error) {
+        debugPrint('Error in pet count stream: $error');
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _petCountSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> loadLiveData() async {

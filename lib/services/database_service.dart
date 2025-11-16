@@ -266,8 +266,14 @@ class DatabaseService {
   }
 
   static Future<int> getPetCount() async {
-    final snapshot = await pets.get();
+    // Use petInfos collection as it's the actual collection used for pet data
+    final snapshot = await petInfos.get();
     return snapshot.docs.length;
+  }
+
+  // Real-time stream for pet count
+  static Stream<int> getPetCountStream() {
+    return petInfos.snapshots().map((snapshot) => snapshot.docs.length);
   }
 
   // Password Reset Methods
