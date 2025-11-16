@@ -4,6 +4,7 @@ class AdminUser {
   final String id;
   final String email;
   final String name;
+  final String? username; // Optional username
   final String role; // 'admin' or 'super-admin'
   final Map<String, bool> permissions; // Module-level permissions
   final DateTime? createdAt;
@@ -13,6 +14,7 @@ class AdminUser {
     required this.id,
     required this.email,
     required this.name,
+    this.username,
     required this.role,
     required this.permissions,
     this.createdAt,
@@ -24,6 +26,7 @@ class AdminUser {
       id: id,
       email: map['email'] ?? '',
       name: map['name'] ?? '',
+      username: map['username'] as String?,
       role: map['role'] ?? 'admin',
       permissions: Map<String, bool>.from(map['permissions'] ?? {}),
       createdAt: map['createdAt'] != null
@@ -39,6 +42,7 @@ class AdminUser {
     return {
       'email': email,
       'name': name,
+      'username': username,
       'role': role,
       'permissions': permissions,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,

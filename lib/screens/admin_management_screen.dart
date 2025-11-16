@@ -17,6 +17,7 @@ class AdminManagementScreen extends StatefulWidget {
 class _AdminManagementScreenState extends State<AdminManagementScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
   String _selectedRole = 'admin';
   final Map<String, bool> _selectedPermissions = {
     'users.view': true,
@@ -39,6 +40,7 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
   void dispose() {
     _emailController.dispose();
     _nameController.dispose();
+    _usernameController.dispose();
     super.dispose();
   }
 
@@ -46,6 +48,7 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
     // Reset form
     _emailController.clear();
     _nameController.clear();
+    _usernameController.clear();
     _selectedRole = 'admin';
     _selectedPermissions.updateAll((key, value) => value = true);
 
@@ -95,6 +98,16 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
                     labelText: 'Name *',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.person),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _usernameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Username (Optional)',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.alternate_email),
+                    helperText: 'A unique username for this admin account',
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -156,6 +169,9 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
                           await DatabaseService.grantAdminAccess(
                             email: _emailController.text.trim(),
                             name: _nameController.text.trim(),
+                            username: _usernameController.text.trim().isEmpty 
+                                ? null 
+                                : _usernameController.text.trim(),
                             role: _selectedRole,
                             permissions: _selectedRole == 'admin'
                                 ? _selectedPermissions
@@ -260,6 +276,7 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
   void _showEditPermissionsDialog(AdminUser adminUser) {
     _nameController.text = adminUser.name;
     _emailController.text = adminUser.email;
+    _usernameController.text = adminUser.username ?? '';
     _selectedRole = adminUser.role;
     _selectedPermissions.clear();
     _selectedPermissions.addAll(adminUser.permissions);
@@ -301,6 +318,16 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
                     labelText: 'Name',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.person),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _usernameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Username',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.alternate_email),
+                    helperText: 'A unique username for this admin account',
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -364,6 +391,17 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
                             await DatabaseService.admins
                                 .doc(adminUser.id)
                                 .update({'name': _nameController.text.trim()});
+                          }
+
+                          // Update username if changed
+                          final newUsername = _usernameController.text.trim().isEmpty 
+                              ? null 
+                              : _usernameController.text.trim();
+                          if (newUsername != adminUser.username) {
+                            await DatabaseService.updateAdminUsername(
+                              adminUser.id,
+                              newUsername,
+                            );
                           }
 
                           if (mounted) {
@@ -590,6 +628,7 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
                               columnSpacing: 24,
                               columns: const [
                                 DataColumn(label: Text('Name')),
+                                DataColumn(label: Text('Username')),
                                 DataColumn(label: Text('Email')),
                                 DataColumn(label: Text('Role')),
                                 DataColumn(label: Text('Permissions')),
@@ -627,6 +666,7 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
                                 return DataRow(
                                   cells: [
                                     DataCell(Text(adminUser.name)),
+                                    DataCell(Text(adminUser.username ?? '—')),
                                     DataCell(Text(adminUser.email)),
                                     DataCell(
                                       Container(

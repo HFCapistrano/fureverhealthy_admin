@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../config/firebase_config.dart';
 
 class DatabaseService {
@@ -300,20 +301,19 @@ class DatabaseService {
       }
       
       final adminData = adminDoc.data() as Map<String, dynamic>?;
-      final storedPassword = adminData?['password'] as String?;
+      if (adminData == null) {
+        return false;
+      }
       
-      // If password is set in admin document, check against it
+      final storedPassword = adminData['password'] as String?;
+      
+      // If password is set in admin document, check against it first
       if (storedPassword != null && storedPassword.isNotEmpty) {
         return storedPassword == password;
       }
       
-      // If no password is set, only allow default for admin@pethealth.com
-      if (email == 'admin@pethealth.com') {
-        return password == 'admin123';
-      }
-      
-      // For other admins, require password to be set
-      return false;
+      // If no stored password, use default "admin123" for all accounts
+      return password == 'admin123';
     } catch (e) {
       print('Error verifying admin password: $e');
       return false;
@@ -422,7 +422,157 @@ class DatabaseService {
   }
 
   static Stream<QuerySnapshot> getCommunityPostsStream() {
-    return community.orderBy('createdAt', descending: true).snapshots();
+    // Try community_posts collection first, fallback to community
+    try {
+      return _firestore.collection('community_posts').orderBy('timestamp', descending: true).snapshots();
+    } catch (e) {
+      return community.orderBy('timestamp', descending: true).snapshots();
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getPostComments(String postId) async {
+    try {
+      // Try community_posts collection first
+      // Try to order by createdAt first
+      QuerySnapshot? commentsSnap;
+      try {
+        commentsSnap = await _firestore
+            .collection('community_posts')
+            .doc(postId)
+            .collection('comments')
+            .orderBy('createdAt', descending: true)
+            .get();
+      } catch (e) {
+        // If ordering fails (e.g., missing index), fetch without ordering
+        debugPrint('Note: Cannot order by createdAt, fetching without order: $e');
+        commentsSnap = await _firestore
+            .collection('community_posts')
+            .doc(postId)
+            .collection('comments')
+            .get();
+      }
+      
+      final comments = commentsSnap.docs.map<Map<String, dynamic>>((doc) {
+        final data = doc.data() as Map<String, dynamic>? ?? {};
+        return {
+          'id': doc.id,
+          'commentId': doc.id,
+          ...data,
+        };
+      }).toList();
+      
+      // Sort manually if we couldn't order by createdAt
+      comments.sort((a, b) {
+        final aTime = a['createdAt'];
+        final bTime = b['createdAt'];
+        if (aTime == null && bTime == null) return 0;
+        if (aTime == null) return 1;
+        if (bTime == null) return -1;
+        
+        DateTime aDate;
+        DateTime bDate;
+        
+        if (aTime is Timestamp) {
+          aDate = aTime.toDate();
+        } else if (aTime is String) {
+          try {
+            aDate = DateTime.parse(aTime);
+          } catch (e) {
+            return 1;
+          }
+        } else {
+          return 1;
+        }
+        
+        if (bTime is Timestamp) {
+          bDate = bTime.toDate();
+        } else if (bTime is String) {
+          try {
+            bDate = DateTime.parse(bTime);
+          } catch (e) {
+            return -1;
+          }
+        } else {
+          return -1;
+        }
+        
+        return bDate.compareTo(aDate);
+      });
+      
+      return comments;
+    } catch (e) {
+      debugPrint('Error fetching comments from community_posts: $e');
+      // Fallback to community collection
+      try {
+        QuerySnapshot? commentsSnap;
+        try {
+          commentsSnap = await community
+              .doc(postId)
+              .collection('comments')
+              .orderBy('createdAt', descending: true)
+              .get();
+        } catch (e2) {
+          // If ordering fails, fetch without ordering
+          debugPrint('Note: Cannot order by createdAt in fallback: $e2');
+          commentsSnap = await community
+              .doc(postId)
+              .collection('comments')
+              .get();
+        }
+        
+        final comments = commentsSnap.docs.map<Map<String, dynamic>>((doc) {
+          final data = doc.data() as Map<String, dynamic>? ?? {};
+          return {
+            'id': doc.id,
+            'commentId': doc.id,
+            ...data,
+          };
+        }).toList();
+        
+        // Sort manually if needed
+        comments.sort((a, b) {
+          final aTime = a['createdAt'];
+          final bTime = b['createdAt'];
+          if (aTime == null && bTime == null) return 0;
+          if (aTime == null) return 1;
+          if (bTime == null) return -1;
+          
+          DateTime aDate;
+          DateTime bDate;
+          
+          if (aTime is Timestamp) {
+            aDate = aTime.toDate();
+          } else if (aTime is String) {
+            try {
+              aDate = DateTime.parse(aTime);
+            } catch (e) {
+              return 1;
+            }
+          } else {
+            return 1;
+          }
+          
+          if (bTime is Timestamp) {
+            bDate = bTime.toDate();
+          } else if (bTime is String) {
+            try {
+              bDate = DateTime.parse(bTime);
+            } catch (e) {
+              return -1;
+            }
+          } else {
+            return -1;
+          }
+          
+          return bDate.compareTo(aDate);
+        });
+        
+        return comments;
+      } catch (e2) {
+        debugPrint('Error fetching comments: $e2');
+        return [];
+      }
+    }
   }
 
   // Feedback to Vets Management
@@ -605,6 +755,7 @@ class DatabaseService {
   static Future<void> grantAdminAccess({
     required String email,
     required String name,
+    String? username,
     required String role,
     Map<String, bool>? permissions,
   }) async {
@@ -626,11 +777,17 @@ class DatabaseService {
         'community.moderate': true,
       };
       
+      // Generate initial password - use "admin123" for all accounts
+      // Users can change it later through settings
+      const initialPassword = 'admin123';
+      
       await admins.add({
         'email': email,
         'name': name,
+        'username': username,
         'role': role,
         'permissions': defaultPermissions,
+        'password': initialPassword,
         'createdAt': FieldValue.serverTimestamp(),
         'lastLogin': null,
       });
@@ -667,6 +824,17 @@ class DatabaseService {
       });
     } catch (e) {
       print('Error updating admin permissions: $e');
+      rethrow;
+    }
+  }
+
+  static Future<void> updateAdminUsername(String adminId, String? username) async {
+    try {
+      await admins.doc(adminId).update({
+        'username': username,
+      });
+    } catch (e) {
+      print('Error updating admin username: $e');
       rethrow;
     }
   }
@@ -891,62 +1059,56 @@ class DatabaseService {
     });
   }
 
-  // Recent Activities
+  // Recent Activities - Only registrations and payments
   static Future<List<Map<String, dynamic>>> getRecentActivities({int limit = 20}) async {
     final activities = <Map<String, dynamic>>[];
     
-    // Get recent content uploads
+    // Get recent user registrations
     try {
-      final contentsSnap = await contents
+      final usersSnap = await users
           .orderBy('createdAt', descending: true)
-          .limit(limit ~/ 4)
+          .limit(limit ~/ 3)
           .get();
-      for (final doc in contentsSnap.docs) {
+      for (final doc in usersSnap.docs) {
         final data = doc.data() as Map<String, dynamic>;
         activities.add({
-          'type': 'content_upload',
+          'type': 'registration',
           'id': doc.id,
-          'title': data['title'] ?? 'Content Upload',
-          'description': 'New content uploaded: ${data['title'] ?? 'Untitled'}',
-          'timestamp': data['createdAt'] ?? data['updatedAt'],
+          'title': 'New User Registration',
+          'description': '${data['name'] ?? 'User'} registered as a new user',
+          'timestamp': data['createdAt'],
           'metadata': {
-            'category': data['category'] ?? 'Unknown',
-            'status': data['status'] ?? 'Unknown',
+            'userName': data['name'] ?? 'Unknown',
+            'email': data['email'] ?? '',
           },
         });
       }
     } catch (e) {
-      // Ignore errors for missing fields
+      debugPrint('Error fetching user registrations: $e');
     }
     
-    // Get recent announcements
+    // Get recent vet registrations
     try {
-      final announcementsSnap = await notifications
-          .where('type', isEqualTo: 'announcement')
+      final vetsSnap = await vets
           .orderBy('createdAt', descending: true)
-          .limit(limit ~/ 4)
+          .limit(limit ~/ 3)
           .get();
-      for (final doc in announcementsSnap.docs) {
+      for (final doc in vetsSnap.docs) {
         final data = doc.data() as Map<String, dynamic>;
-        final status = data['status'] ?? 'sent';
         activities.add({
-          'type': status == 'scheduled' ? 'announcement_scheduled' : 'announcement',
+          'type': 'vet_join',
           'id': doc.id,
-          'title': data['title'] ?? 'Announcement',
-          'description': status == 'scheduled' 
-              ? 'Announcement scheduled: ${data['title'] ?? 'Untitled'}'
-              : 'Announcement made: ${data['title'] ?? 'Untitled'}',
-          'timestamp': status == 'scheduled' 
-              ? (data['scheduledDate'] ?? data['createdAt'])
-              : data['createdAt'],
+          'title': 'New Vet Registration',
+          'description': '${data['name'] ?? 'Veterinarian'} joined as a veterinarian',
+          'timestamp': data['createdAt'],
           'metadata': {
-            'targetAudience': data['targetAudience'] ?? 'all',
-            'status': status,
+            'vetName': data['name'] ?? 'Unknown',
+            'clinic': data['clinic'] ?? '',
           },
         });
       }
     } catch (e) {
-      // Ignore errors
+      debugPrint('Error fetching vet registrations: $e');
     }
     
     // Get recent payment notices (Pending payments)
@@ -954,7 +1116,7 @@ class DatabaseService {
       final paymentsSnap = await payments
           .where('status', isEqualTo: 'Pending')
           .orderBy('submissionTime', descending: true)
-          .limit(limit ~/ 4)
+          .limit(limit ~/ 3)
           .get();
       for (final doc in paymentsSnap.docs) {
         final data = doc.data() as Map<String, dynamic>;
@@ -973,7 +1135,7 @@ class DatabaseService {
         });
       }
     } catch (e) {
-      // Ignore errors
+      debugPrint('Error fetching payments: $e');
     }
     
     // Sort all activities by timestamp (most recent first)
@@ -1015,6 +1177,13 @@ class DatabaseService {
     });
     
     return activities.take(limit).toList();
+  }
+
+  // Realtime stream for recent activities
+  static Stream<List<Map<String, dynamic>>> getRecentActivitiesStream({int limit = 20}) {
+    // Poll every 5 seconds for updates
+    return Stream.periodic(const Duration(seconds: 5))
+        .asyncMap((_) => getRecentActivities(limit: limit));
   }
 
   static Stream<QuerySnapshot> getContentsStream([String? sortBy]) {

@@ -231,12 +231,6 @@ class _VetDetailScreenState extends State<VetDetailScreen> {
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 16),
-                                _buildInfoRow('Account Status', status == 'active'
-                                    ? 'Active'
-                                    : status == 'inactive'
-                                        ? 'Inactive'
-                                        : 'Dormant'),
                               ],
                             ),
 

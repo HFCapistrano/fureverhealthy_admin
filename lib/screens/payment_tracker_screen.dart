@@ -462,6 +462,34 @@ class _PaymentTrackerScreenState extends State<PaymentTrackerScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    if (status.toLowerCase() == 'pending') ...[
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _updatePaymentStatus(context, doc.id, 'Rejected');
+                        },
+                        icon: const Icon(Icons.cancel),
+                        label: const Text('Reject'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _updatePaymentStatus(context, doc.id, 'Verified');
+                        },
+                        icon: const Icon(Icons.check_circle),
+                        label: const Text('Verify'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
                     TextButton(
                       onPressed: () => Navigator.pop(context),
                       child: const Text('Close'),

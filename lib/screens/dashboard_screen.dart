@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:furever_healthy_admin/providers/auth_provider.dart';
 import 'package:furever_healthy_admin/providers/dashboard_provider.dart';
+import 'package:furever_healthy_admin/services/database_service.dart';
 import 'package:furever_healthy_admin/theme/app_theme.dart';
 import 'package:furever_healthy_admin/widgets/sidebar.dart';
 
@@ -210,9 +212,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-                                Consumer<DashboardProvider>(
-                                  builder: (context, dashboardProvider, child) {
-                                    final activities = dashboardProvider.recentActivities;
+                                StreamBuilder<List<Map<String, dynamic>>>(
+                                  stream: DatabaseService.getRecentActivitiesStream(limit: 20),
+                                  builder: (context, snapshot) {
+                                    if (snapshot.connectionState == ConnectionState.waiting) {
+                                      return const Center(
+                                        child: Padding(
+                                          padding: EdgeInsets.all(24.0),
+                                          child: CircularProgressIndicator(),
+                                        ),
+                                      );
+                                    }
+                                    if (snapshot.hasError) {
+                                      return Center(
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(24.0),
+                                          child: Text('Error: ${snapshot.error}'),
+                                        ),
+                                      );
+                                    }
+                                    final activities = snapshot.data ?? [];
                                     if (activities.isEmpty) {
                                       return const Center(
                                         child: Padding(
@@ -260,6 +279,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     
     if (timestamp is DateTime) {
       activityTime = timestamp;
+    } else if (timestamp is Timestamp) {
+      activityTime = timestamp.toDate();
     } else if (timestamp != null) {
       try {
         activityTime = DateTime.parse(timestamp.toString());

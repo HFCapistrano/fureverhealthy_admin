@@ -35,29 +35,6 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
     super.dispose();
   }
 
-  List<QueryDocumentSnapshot<Map<String, dynamic>>> _applyFilters(
-      List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
-    return docs.where((doc) {
-      final data = doc.data();
-      final content = (data['content'] ?? '').toString().toLowerCase();
-      final title = (data['title'] ?? '').toString().toLowerCase();
-      final userName = (data['userName'] ?? '').toString().toLowerCase();
-      final vetName = (data['vetName'] ?? '').toString().toLowerCase();
-      final type = (data['type'] ?? '').toString();
-      final category = (data['category'] ?? '').toString();
-
-      final matchesSearch = content.contains(_searchQuery.toLowerCase()) ||
-          title.contains(_searchQuery.toLowerCase()) ||
-          userName.contains(_searchQuery.toLowerCase()) ||
-          vetName.contains(_searchQuery.toLowerCase());
-      final matchesType = _typeFilter == 'all' || type == _typeFilter;
-      final matchesCategory =
-          _categoryFilter == 'all' || category == _categoryFilter;
-
-      return matchesSearch && matchesType && matchesCategory;
-    }).toList();
-  }
-
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _applyFeedbackFilters(
       List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
     return docs.where((doc) {
@@ -683,20 +660,25 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
     );
   }
 
-  void _viewPostDetails(
-      BuildContext context, Map<String, dynamic> postData) {
-    final title = postData['title'] ?? '';
-    final content = postData['content'] ?? '';
+  void _viewPostWithComments(
+      BuildContext context, String postId, Map<String, dynamic> postData) {
+    final message = postData['message'] ?? '';
     final userName = postData['userName'] ?? 'Unknown';
-    final vetName = postData['vetName'] ?? '';
-    final type = postData['type'] ?? 'user';
-    final category = postData['category'] ?? '';
-    final createdAt = postData['createdAt'];
     final userId = postData['userId'] ?? '';
-    final vetId = postData['vetId'] ?? '';
-    final likes = postData['likes'] ?? 0;
-    final comments = postData['comments'] ?? 0;
+    final timestamp = postData['timestamp'];
+    final reactions = postData['reactions'] ?? 0;
+    final commentsCount = postData['comments'] ?? 0;
     final imageUrl = postData['imageUrl'] ?? '';
+    final userAvatar = postData['userAvatar'] ?? '';
+
+    String timestampStr = 'Unknown';
+    if (timestamp != null) {
+      if (timestamp is Timestamp) {
+        timestampStr = timestamp.toDate().toString().substring(0, 19);
+      } else {
+        timestampStr = timestamp.toString();
+      }
+    }
 
     showDialog(
       context: context,
@@ -732,41 +714,69 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (title.isNotEmpty) ...[
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                      _buildDetailRow('Type', type == 'user' ? 'User' : 'Vet'),
-                      const SizedBox(height: 16),
-                      _buildDetailRow(
-                        'Author',
-                        type == 'user' ? userName : vetName,
-                      ),
-                      const SizedBox(height: 16),
-                      if (category.isNotEmpty)
-                        _buildDetailRow('Category', category),
-                      if (userId.isNotEmpty)
-                        _buildDetailRow('User ID', userId),
-                      if (vetId.isNotEmpty) _buildDetailRow('Vet ID', vetId),
-                      const SizedBox(height: 16),
                       Row(
                         children: [
-                          _buildStatChip(Icons.favorite, likes.toString()),
-                          const SizedBox(width: 16),
-                          _buildStatChip(Icons.comment, comments.toString()),
+                          if (userAvatar.isNotEmpty)
+                            CircleAvatar(
+                              radius: 24,
+                              backgroundImage: NetworkImage(userAvatar),
+                              onBackgroundImageError: (_, __) {},
+                            )
+                          else
+                            CircleAvatar(
+                              radius: 24,
+                              backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                              child: Text(
+                                userName.isNotEmpty ? userName[0].toUpperCase() : '?',
+                                style: const TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  userName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                                Text(
+                                  timestampStr,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              _buildStatChip(Icons.favorite, reactions.toString()),
+                              const SizedBox(width: 8),
+                              _buildStatChip(Icons.comment, commentsCount.toString()),
+                            ],
+                          ),
                         ],
                       ),
+                      if (userId.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        _buildDetailRow('User ID', userId),
+                      ],
                       const SizedBox(height: 16),
                       if (imageUrl.isNotEmpty) ...[
                         Container(
                           width: double.infinity,
-                          height: 200,
+                          constraints: const BoxConstraints(
+                            minHeight: 200,
+                            maxHeight: 600,
+                          ),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: AppTheme.borderColor),
@@ -775,10 +785,36 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                             borderRadius: BorderRadius.circular(8),
                             child: Image.network(
                               imageUrl,
-                              fit: BoxFit.cover,
+                              fit: BoxFit.contain,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Container(
+                                  height: 200,
+                                  color: AppTheme.surfaceColor,
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      value: loadingProgress.expectedTotalBytes != null
+                                          ? loadingProgress.cumulativeBytesLoaded /
+                                              loadingProgress.expectedTotalBytes!
+                                          : null,
+                                    ),
+                                  ),
+                                );
+                              },
                               errorBuilder: (context, error, stackTrace) {
-                                return const Center(
-                                  child: Icon(Icons.error, size: 48),
+                                return Container(
+                                  height: 200,
+                                  color: AppTheme.surfaceColor,
+                                  child: const Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.error, size: 48, color: AppTheme.errorColor),
+                                        SizedBox(height: 8),
+                                        Text('Failed to load image'),
+                                      ],
+                                    ),
+                                  ),
                                 );
                               },
                             ),
@@ -787,7 +823,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                         const SizedBox(height: 16),
                       ],
                       const Text(
-                        'Content:',
+                        'Message:',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 16,
@@ -803,18 +839,104 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                           border: Border.all(color: AppTheme.borderColor),
                         ),
                         child: Text(
-                          content,
+                          message,
                           style: const TextStyle(fontSize: 14),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      if (createdAt != null)
-                        _buildDetailRow(
-                          'Created At',
-                          createdAt is Timestamp
-                              ? createdAt.toDate().toString()
-                              : createdAt.toString(),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Comments:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
                         ),
+                      ),
+                      const SizedBox(height: 8),
+                      FutureBuilder<List<Map<String, dynamic>>>(
+                        future: DatabaseService.getPostComments(postId),
+                        builder: (context, commentsSnapshot) {
+                          if (commentsSnapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          }
+                          if (commentsSnapshot.hasError) {
+                            return Center(
+                              child: Text('Error loading comments: ${commentsSnapshot.error}'),
+                            );
+                          }
+                          final comments = commentsSnapshot.data ?? [];
+                          if (comments.isEmpty) {
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: AppTheme.surfaceColor,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppTheme.borderColor),
+                              ),
+                              child: const Center(
+                                child: Text('No comments yet'),
+                              ),
+                            );
+                          }
+                          return Column(
+                            children: comments.map((comment) {
+                              final commentText = comment['text'] ?? comment['message'] ?? '';
+                              final commentUserName = comment['userName'] ?? 'Unknown';
+                              final commentTimestamp = comment['createdAt'] ?? comment['timestamp'];
+                              String commentTimeStr = 'Unknown';
+                              if (commentTimestamp != null) {
+                                if (commentTimestamp is Timestamp) {
+                                  commentTimeStr = commentTimestamp.toDate().toString().substring(0, 19);
+                                } else {
+                                  commentTimeStr = commentTimestamp.toString();
+                                }
+                              }
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.backgroundColor,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppTheme.borderColor),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          commentUserName,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          commentTimeStr,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      commentText,
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -1123,16 +1245,8 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
         // Posts List
         Expanded(
           child: Card(
-            child: StreamBuilder<
-                QuerySnapshot<Map<String, dynamic>>>(
-              stream: DatabaseService.community
-                  .orderBy('createdAt', descending: true)
-                  .withConverter<Map<String, dynamic>>(
-                    fromFirestore: (snap, _) =>
-                        snap.data() ?? <String, dynamic>{},
-                    toFirestore: (value, _) => value,
-                  )
-                  .snapshots(),
+            child: StreamBuilder<QuerySnapshot>(
+              stream: DatabaseService.getCommunityPostsStream(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState ==
                     ConnectionState.waiting) {
@@ -1144,49 +1258,41 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                       child: Text('Error: ${snapshot.error}'));
                 }
                 final docs = snapshot.data?.docs ?? [];
-                final filtered = _applyFilters(docs);
-                if (filtered.isEmpty) {
+                if (docs.isEmpty) {
                   return const Center(
                       child: Text('No posts found'));
                 }
                 return ListView.builder(
-                  itemCount: filtered.length,
+                  itemCount: docs.length,
                   padding: const EdgeInsets.all(16),
                   itemBuilder: (context, index) {
-                    final doc = filtered[index];
-                    final data = doc.data();
-                    final title =
-                        (data['title'] ?? '').toString();
-                    final content =
-                        (data['content'] ?? '').toString();
+                    final doc = docs[index];
+                    final data = doc.data() as Map<String, dynamic>;
+                    final message =
+                        (data['message'] ?? '').toString();
                     final userName =
                         (data['userName'] ?? 'Unknown').toString();
-                    final vetName =
-                        (data['vetName'] ?? '').toString();
-                    final type =
-                        (data['type'] ?? 'user').toString();
-                    final category =
-                        (data['category'] ?? '').toString();
-                    final createdAt = data['createdAt'];
-                    final likes = data['likes'] ?? 0;
-                    final comments = data['comments'] ?? 0;
+                    final userId =
+                        (data['userId'] ?? '').toString();
+                    final timestamp = data['timestamp'];
+                    final reactions = data['reactions'] ?? 0;
+                    final commentsCount = data['comments'] ?? 0;
                     final imageUrl =
                         (data['imageUrl'] ?? '').toString();
+                    final userAvatar =
+                        (data['userAvatar'] ?? '').toString();
 
-                    String createdAtStr = 'Unknown';
-                    if (createdAt != null) {
-                      if (createdAt is Timestamp) {
-                        createdAtStr = createdAt
+                    String timestampStr = 'Unknown';
+                    if (timestamp != null) {
+                      if (timestamp is Timestamp) {
+                        timestampStr = timestamp
                             .toDate()
                             .toString()
                             .substring(0, 16);
                       } else {
-                        createdAtStr = createdAt.toString();
+                        timestampStr = timestamp.toString();
                       }
                     }
-
-                    String authorName =
-                        type == 'user' ? userName : vetName;
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
@@ -1200,21 +1306,18 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                               children: [
                                 CircleAvatar(
                                   radius: 20,
-                                  backgroundColor: type == 'user'
-                                      ? AppTheme.primaryColor
-                                          .withOpacity(0.1)
-                                      : AppTheme.successColor
-                                          .withOpacity(0.1),
-                                  child: Icon(
-                                    type == 'user'
-                                        ? Icons.person
-                                        : Icons
-                                            .medical_services,
-                                    color: type == 'user'
-                                        ? AppTheme.primaryColor
-                                        : AppTheme.successColor,
-                                    size: 20,
-                                  ),
+                                  backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                                  backgroundImage: userAvatar.isNotEmpty ? NetworkImage(userAvatar) : null,
+                                  onBackgroundImageError: (_, __) {},
+                                  child: userAvatar.isEmpty
+                                      ? Text(
+                                          userName.isNotEmpty ? userName[0].toUpperCase() : '?',
+                                          style: const TextStyle(
+                                            color: AppTheme.primaryColor,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        )
+                                      : null,
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
@@ -1222,125 +1325,21 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      if (title.isNotEmpty)
-                                        Text(
-                                          title,
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight:
-                                                FontWeight.w600,
-                                          ),
+                                      Text(
+                                        userName,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight:
+                                              FontWeight.w600,
                                         ),
-                                      if (title.isEmpty)
-                                        const Text(
-                                          'Untitled Post',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight:
-                                                FontWeight.w600,
-                                            color: AppTheme
-                                                .textSecondary,
-                                            fontStyle:
-                                                FontStyle.italic,
-                                          ),
+                                      ),
+                                      Text(
+                                        timestampStr,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppTheme
+                                              .textSecondary,
                                         ),
-                                      Row(
-                                        children: [
-                                          Container(
-                                            padding:
-                                                const EdgeInsets
-                                                    .symmetric(
-                                                    horizontal:
-                                                        8,
-                                                    vertical: 4),
-                                            decoration:
-                                                BoxDecoration(
-                                              color: type ==
-                                                      'user'
-                                                  ? AppTheme
-                                                      .primaryColor
-                                                      .withOpacity(
-                                                          0.1)
-                                                  : AppTheme
-                                                      .successColor
-                                                      .withOpacity(
-                                                          0.1),
-                                              borderRadius:
-                                                  BorderRadius
-                                                      .circular(
-                                                          4),
-                                            ),
-                                            child: Text(
-                                              type == 'user'
-                                                  ? 'User'
-                                                  : 'Vet',
-                                              style: TextStyle(
-                                                color: type ==
-                                                        'user'
-                                                    ? AppTheme
-                                                        .primaryColor
-                                                    : AppTheme
-                                                        .successColor,
-                                                fontSize: 12,
-                                                fontWeight:
-                                                    FontWeight
-                                                        .w600,
-                                              ),
-                                            ),
-                                          ),
-                                          if (category.isNotEmpty) ...[
-                                            const SizedBox(
-                                                width: 8),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal:
-                                                          8,
-                                                      vertical: 4),
-                                              decoration:
-                                                  BoxDecoration(
-                                                color: AppTheme
-                                                    .borderColor
-                                                    .withOpacity(
-                                                        0.1),
-                                                borderRadius:
-                                                    BorderRadius
-                                                        .circular(
-                                                            4),
-                                              ),
-                                              child: Text(
-                                                category,
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color:
-                                                      AppTheme
-                                                          .textSecondary,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                          const SizedBox(
-                                              width: 8),
-                                          Text(
-                                            authorName,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: AppTheme
-                                                  .textSecondary,
-                                            ),
-                                          ),
-                                          const SizedBox(
-                                              width: 8),
-                                          Text(
-                                            createdAtStr,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: AppTheme
-                                                  .textSecondary,
-                                            ),
-                                          ),
-                                        ],
                                       ),
                                     ],
                                   ),
@@ -1348,25 +1347,23 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                                 Row(
                                   children: [
                                     _buildStatChip(
-                                        Icons.favorite, '$likes'),
+                                        Icons.favorite, '$reactions'),
                                     const SizedBox(width: 8),
                                     _buildStatChip(
                                         Icons.comment,
-                                        '$comments'),
+                                        '$commentsCount'),
                                   ],
                                 ),
                                 IconButton(
                                   onPressed: () =>
-                                      _viewPostDetails(
-                                          context, data),
+                                      _viewPostWithComments(
+                                          context, doc.id, data),
                                   icon: const Icon(Icons.visibility),
-                                  tooltip: 'View Details',
+                                  tooltip: 'View Details & Comments',
                                 ),
                                 PopupMenuButton<String>(
                                   icon: const Icon(Icons.more_vert),
                                   onSelected: (value) {
-                                    final userId = data['userId'] ?? '';
-                                    final userName = data['userName'] ?? 'Unknown';
                                     if (userId.isEmpty) {
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         const SnackBar(
@@ -1379,7 +1376,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                                     
                                     switch (value) {
                                       case 'delete':
-                                        _deletePost(context, doc.id, title);
+                                        _deletePost(context, doc.id, message);
                                         break;
                                       case 'mute':
                                         _showMuteUserDialog(context, userId, userName);
@@ -1441,7 +1438,10 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                               const SizedBox(height: 12),
                               Container(
                                 width: double.infinity,
-                                height: 200,
+                                constraints: const BoxConstraints(
+                                  minHeight: 200,
+                                  maxHeight: 600,
+                                ),
                                 decoration: BoxDecoration(
                                   borderRadius:
                                       BorderRadius.circular(8),
@@ -1454,12 +1454,39 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                                       BorderRadius.circular(8),
                                   child: Image.network(
                                     imageUrl,
-                                    fit: BoxFit.cover,
+                                    fit: BoxFit.contain,
+                                    loadingBuilder: (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return Container(
+                                        height: 200,
+                                        color: AppTheme.surfaceColor,
+                                        child: Center(
+                                          child: CircularProgressIndicator(
+                                            value: loadingProgress.expectedTotalBytes != null
+                                                ? loadingProgress.cumulativeBytesLoaded /
+                                                    loadingProgress.expectedTotalBytes!
+                                                : null,
+                                          ),
+                                        ),
+                                      );
+                                    },
                                     errorBuilder: (context,
                                         error, stackTrace) {
-                                      return const Center(
-                                        child: Icon(Icons.error,
-                                            size: 48),
+                                      return Container(
+                                        height: 200,
+                                        color: AppTheme.surfaceColor,
+                                        child: const Center(
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(Icons.error,
+                                                  size: 48,
+                                                  color: AppTheme.errorColor),
+                                              SizedBox(height: 8),
+                                              Text('Failed to load image'),
+                                            ],
+                                          ),
+                                        ),
                                       );
                                     },
                                   ),
@@ -1478,9 +1505,9 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                                     color: AppTheme.borderColor),
                               ),
                               child: Text(
-                                content.length > 200
-                                    ? '${content.substring(0, 200)}...'
-                                    : content,
+                                message.length > 200
+                                    ? '${message.substring(0, 200)}...'
+                                    : message,
                                 style: const TextStyle(
                                   fontSize: 14,
                                 ),

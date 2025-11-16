@@ -174,11 +174,22 @@ class _SidebarState extends State<Sidebar> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            authProvider.userName ?? 'Admin User',
+                            authProvider.adminUser?.username ?? 
+                            authProvider.adminUser?.name ?? 
+                            authProvider.userName ?? 
+                            'Admin User',
                             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
                           ),
+                          if (authProvider.adminUser?.username != null)
+                            Text(
+                              authProvider.adminUser?.name ?? 'Admin User',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppTheme.textSecondary,
+                                fontSize: 11,
+                              ),
+                            ),
                           Text(
                             authProvider.userEmail ?? 'admin@pethealth.com',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(

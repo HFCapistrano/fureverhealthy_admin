@@ -90,6 +90,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           'Security Settings',
                           Icons.security,
                           [
+                            // Edit Username
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Edit Username',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppTheme.textPrimary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Consumer<AuthProvider>(
+                                          builder: (context, authProvider, child) {
+                                            final currentUsername = authProvider.adminUser?.username;
+                                            return Text(
+                                              currentUsername != null 
+                                                  ? 'Current username: $currentUsername'
+                                                  : 'No username set. Click to set one.',
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                color: AppTheme.textSecondary,
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  ElevatedButton.icon(
+                                    onPressed: () => _showEditUsernameDialog(context),
+                                    icon: const Icon(Icons.alternate_email),
+                                    label: const Text('Edit Username'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.primaryColor,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Divider(),
                             // Change Password
                             Padding(
                               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -865,6 +913,122 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showEditUsernameDialog(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final currentUsername = authProvider.adminUser?.username ?? '';
+    final usernameController = TextEditingController(text: currentUsername);
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.5,
+          constraints: const BoxConstraints(maxWidth: 500),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.alternate_email, color: AppTheme.primaryColor),
+                  SizedBox(width: 8),
+                  Text(
+                    'Edit Username',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              TextField(
+                controller: usernameController,
+                decoration: const InputDecoration(
+                  labelText: 'Username',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.alternate_email),
+                  helperText: 'Leave empty to remove username',
+                ),
+                autofocus: true,
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      usernameController.dispose();
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final scaffoldMessenger = ScaffoldMessenger.of(context);
+                      final newUsername = usernameController.text.trim();
+                      
+                      try {
+                        final adminUser = authProvider.adminUser;
+                        if (adminUser == null) {
+                          scaffoldMessenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Unable to identify admin account'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        
+                        await DatabaseService.updateAdminUsername(
+                          adminUser.id,
+                          newUsername.isEmpty ? null : newUsername,
+                        );
+
+                        if (mounted) {
+                          usernameController.dispose();
+                          Navigator.pop(context);
+                          
+                          // Refresh admin user data
+                          await authProvider.refreshAdminUser();
+                          
+                          scaffoldMessenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Username updated successfully'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          scaffoldMessenger.showSnackBar(
+                            SnackBar(
+                              content: Text('Error updating username: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.check_circle),
+                    label: const Text('Save Username'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

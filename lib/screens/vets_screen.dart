@@ -21,9 +21,6 @@ class _VetsScreenState extends State<VetsScreen> {
   String _verificationFilter = 'all';
   String _userTypeFilter = 'all';
   
-  // Bulk selection
-  Set<String> _selectedVetIds = {};
-  
   // Scroll controllers for proper scroll bar control
   final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _horizontalScrollController = ScrollController();
@@ -1090,104 +1087,6 @@ class _VetsScreenState extends State<VetsScreen> {
                       ),
                       Row(
                         children: [
-                          if (_selectedVetIds.isNotEmpty) ...[
-                            ElevatedButton.icon(
-                              onPressed: () async {
-                                final passwordController = TextEditingController();
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    title: const Row(
-                                      children: [
-                                        Icon(Icons.verified_user, color: AppTheme.primaryColor),
-                                        SizedBox(width: 8),
-                                        Text('Bulk Verify Vets'),
-                                      ],
-                                    ),
-                                    content: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Are you sure you want to verify ${_selectedVetIds.length} veterinarians?'),
-                                        const SizedBox(height: 16),
-                                        TextField(
-                                          controller: passwordController,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Enter your admin password to confirm',
-                                            prefixIcon: Icon(Icons.lock),
-                                          ),
-                                          obscureText: true,
-                                        ),
-                                      ],
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () {
-                                          passwordController.dispose();
-                                          Navigator.pop(context);
-                                        },
-                                        child: const Text('Cancel'),
-                                      ),
-                                      ElevatedButton.icon(
-                                        onPressed: () async {
-                                          final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                                          final adminEmail = authProvider.userEmail ?? '';
-                                          final isPasswordValid = await DatabaseService.verifyAdminPassword(adminEmail, passwordController.text);
-                                          if (!isPasswordValid) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(
-                                                content: Text('Invalid admin password'),
-                                                backgroundColor: Colors.red,
-                                              ),
-                                            );
-                                            passwordController.clear();
-                                            return;
-                                          }
-                                          
-                                          try {
-                                            await DatabaseService.bulkVerifyVets(_selectedVetIds.toList());
-                                            if (mounted) {
-                                              passwordController.dispose();
-                                              Navigator.pop(context);
-                                              setState(() {
-                                                _selectedVetIds.clear();
-                                              });
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(
-                                                  content: Text('${_selectedVetIds.length} veterinarians verified successfully'),
-                                                  backgroundColor: Colors.green,
-                                                ),
-                                              );
-                                            }
-                                          } catch (e) {
-                                            if (mounted) {
-                                              passwordController.dispose();
-                                              Navigator.pop(context);
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(
-                                                  content: Text('Error verifying vets: $e'),
-                                                  backgroundColor: Colors.red,
-                                                ),
-                                              );
-                                            }
-                                          }
-                                        },
-                                        icon: const Icon(Icons.verified_user),
-                                        label: const Text('Verify'),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.verified_user),
-                              label: Text('Verify (${_selectedVetIds.length})'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primaryColor,
-                                foregroundColor: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
                           ElevatedButton.icon(
                             onPressed: () => _addVet(context),
                             icon: const Icon(Icons.add),
@@ -1376,24 +1275,6 @@ class _VetsScreenState extends State<VetsScreen> {
                                             child: DataTable(
                                               columnSpacing: 24,
                                               columns: [
-                                                DataColumn(
-                                                  label: Padding(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                                                    child: Checkbox(
-                                                      value: _selectedVetIds.length == filtered.length && filtered.isNotEmpty,
-                                                      tristate: _selectedVetIds.isNotEmpty && _selectedVetIds.length < filtered.length,
-                                                      onChanged: (value) {
-                                                        setState(() {
-                                                          if (value == true) {
-                                                            _selectedVetIds = Set.from(filtered.map((doc) => doc.id));
-                                                          } else {
-                                                            _selectedVetIds.clear();
-                                                          }
-                                                        });
-                                                      },
-                                                    ),
-                                                  ),
-                                                ),
                                                 const DataColumn(label: Text('View')),
                                                 const DataColumn(label: Text('Veterinarian')),
                                                 const DataColumn(label: Text('Contact')),
@@ -1425,23 +1306,6 @@ class _VetsScreenState extends State<VetsScreen> {
 
                                         return DataRow(
                                           cells: [
-                                            DataCell(
-                                              Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                                                child: Checkbox(
-                                                  value: _selectedVetIds.contains(doc.id),
-                                                  onChanged: (value) {
-                                                    setState(() {
-                                                      if (value == true) {
-                                                        _selectedVetIds.add(doc.id);
-                                                      } else {
-                                                        _selectedVetIds.remove(doc.id);
-                                                      }
-                                                    });
-                                                  },
-                                                ),
-                                              ),
-                                            ),
                                             DataCell(
                                               ElevatedButton(
                                                 onPressed: () => _viewVetDetails(context, doc.id, data),
