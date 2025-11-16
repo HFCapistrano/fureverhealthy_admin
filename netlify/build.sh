@@ -50,36 +50,11 @@ echo "=========================================="
 echo "Starting Flutter web build..."
 echo "=========================================="
 
-# Try building with html renderer first (lighter, faster, uses less memory)
-echo "Attempting build with html renderer (lighter weight)..."
-if flutter build web --release --web-renderer html 2>&1; then
-    echo "=========================================="
-    echo "Build completed successfully with html renderer!"
-    echo "=========================================="
-    exit 0
-fi
-
-echo "=========================================="
-echo "Build with html renderer failed. Error above."
-echo "Trying with canvaskit renderer..."
-echo "=========================================="
-
-# Try with canvaskit renderer
-if flutter build web --release --web-renderer canvaskit 2>&1; then
-    echo "=========================================="
-    echo "Build completed successfully with canvaskit renderer!"
-    echo "=========================================="
-    exit 0
-fi
-
-echo "=========================================="
-echo "Both renderers failed. Trying default renderer..."
-echo "=========================================="
-
-# Try default (auto-select)
+# Build the web app (Flutter 3.38+ doesn't use --web-renderer flag)
+echo "Building Flutter web app..."
 if flutter build web --release 2>&1; then
     echo "=========================================="
-    echo "Build completed successfully with default renderer!"
+    echo "Build completed successfully!"
     echo "=========================================="
     exit 0
 fi

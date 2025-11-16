@@ -192,4 +192,28 @@ class AuthProvider extends ChangeNotifier {
 
     notifyListeners();
   }
+
+  Future<void> refreshAdminUser() async {
+    if (_isAuthenticated && _userEmail != null) {
+      try {
+        final adminDoc = await DatabaseService.getAdminUserByEmail(_userEmail!);
+        if (adminDoc != null && adminDoc.exists) {
+          final adminUser = AdminUser.fromMap(
+            adminDoc.data() as Map<String, dynamic>,
+            adminDoc.id,
+          );
+          _adminUser = adminUser;
+          _userName = adminUser.name;
+          _userRole = adminUser.role;
+          _permissions = Map<String, bool>.from(adminUser.permissions);
+          
+          // Update local storage
+          await _saveAuthState();
+          notifyListeners();
+        }
+      } catch (e) {
+        print('Error refreshing admin user: $e');
+      }
+    }
+  }
 } 
