@@ -879,14 +879,44 @@ class DatabaseService {
   }
 
   static Future<int> getActiveVetsCount({DateTime? startDate, DateTime? endDate}) async {
-    var query = vets.where('verificationStatus', isEqualTo: 'verified');
-    if (startDate != null) {
-      query = query.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
-    }
-    if (endDate != null) {
-      query = query.where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(endDate));
-    }
+    // Build query without date filters to avoid composite index requirement
+    // We'll filter by date in memory instead
+    Query query = vets.where('verificationStatus', isEqualTo: 'verified');
     final snapshot = await query.get();
+    
+    // Filter by date range in memory if dates are provided
+    if (startDate != null || endDate != null) {
+      int count = 0;
+      for (final doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>? ?? {};
+        final createdAt = data['createdAt'];
+        
+        if (createdAt == null) continue;
+        
+        DateTime? docDate;
+        if (createdAt is Timestamp) {
+          docDate = createdAt.toDate();
+        } else if (createdAt is String) {
+          try {
+            docDate = DateTime.parse(createdAt);
+          } catch (e) {
+            continue;
+          }
+        } else {
+          continue;
+        }
+        
+        // Check date range (matching original query behavior)
+        // startDate: createdAt >= startDate (inclusive)
+        // endDate: createdAt <= endDate (inclusive)
+        if (startDate != null && docDate.isBefore(startDate)) continue;
+        if (endDate != null && docDate.isAfter(endDate)) continue;
+        
+        count++;
+      }
+      return count;
+    }
+    
     return snapshot.docs.length;
   }
 
