@@ -48,6 +48,7 @@ Create a file named `cors.json` with the following content:
     "origin": [
       "https://your-domain.com",
       "https://www.your-domain.com",
+      "https://your-site.netlify.app",
       "http://localhost:5000",
       "http://localhost:8080"
     ],
@@ -57,6 +58,34 @@ Create a file named `cors.json` with the following content:
   }
 ]
 ```
+
+### Important: For Netlify Deployment
+
+When deploying to Netlify, you **must** update your CORS configuration to include your Netlify domain. After deploying to Netlify, you'll get a URL like `https://your-site-name.netlify.app`. 
+
+1. Update your `cors.json` file to include your Netlify domain:
+```json
+[
+  {
+    "origin": [
+      "https://your-site-name.netlify.app",
+      "https://your-site-name.netlify.app/*",
+      "http://localhost:5000",
+      "http://localhost:8080"
+    ],
+    "method": ["GET", "HEAD"],
+    "maxAgeSeconds": 3600,
+    "responseHeader": ["Content-Type", "Content-Length", "Authorization"]
+  }
+]
+```
+
+2. Apply the updated CORS configuration:
+```bash
+gsutil cors set cors.json gs://fureverhealthy-admin.appspot.com
+```
+
+3. If you have a custom domain on Netlify, also add that domain to the CORS configuration.
 
 ### Step 5: Apply CORS configuration
 
@@ -130,7 +159,9 @@ For production, **do not use `"origin": ["*"]`. Instead, specify your actual dom
   {
     "origin": [
       "https://fureverhealthy-admin.web.app",
-      "https://fureverhealthy-admin.firebaseapp.com"
+      "https://fureverhealthy-admin.firebaseapp.com",
+      "https://your-site-name.netlify.app",
+      "https://your-custom-domain.com"
     ],
     "method": ["GET", "HEAD"],
     "maxAgeSeconds": 3600,
@@ -140,4 +171,18 @@ For production, **do not use `"origin": ["*"]`. Instead, specify your actual dom
 ```
 
 This prevents unauthorized websites from accessing your Firebase Storage resources.
+
+## Netlify Deployment Checklist
+
+Before deploying to Netlify, ensure:
+
+1. ✅ **CORS Configuration Updated**: Add your Netlify domain to Firebase Storage CORS settings
+2. ✅ **netlify.toml Created**: Configuration file is in the project root
+3. ✅ **Firebase Config**: Your Firebase configuration in `lib/config/firebase_config.dart` is correct
+4. ✅ **Build Test**: Test the build locally with `flutter build web --release`
+
+After deployment:
+- Verify your app loads correctly on Netlify
+- Check browser console for any CORS errors
+- Test Firebase authentication and storage functionality
 
