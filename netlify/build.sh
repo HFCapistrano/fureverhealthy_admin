@@ -8,6 +8,7 @@ FLUTTER_VERSION="${FLUTTER_VERSION:-3.24.0}"
 # Install location
 FLUTTER_DIR="$HOME/flutter"
 
+# Install Flutter if not already installed
 if [ ! -d "$FLUTTER_DIR" ]; then
   mkdir -p "$HOME"
   echo "Downloading Flutter ${FLUTTER_VERSION}..."
@@ -16,15 +17,22 @@ if [ ! -d "$FLUTTER_DIR" ]; then
   rm /tmp/flutter_linux.tar.xz
 fi
 
-# Ensure flutter is on PATH for this build
+# Ensure flutter is on PATH
 export PATH="$FLUTTER_DIR/bin:$FLUTTER_DIR/bin/cache/dart-sdk/bin:$PATH"
 
-# Make sure flutter can run and enable web
+# Verify flutter is available
 which flutter || (echo "flutter not found on PATH" && exit 1)
 flutter --version
+
+# Setup Flutter
 flutter channel stable
 flutter upgrade --force
 flutter config --enable-web
 flutter precache --web
+
+# Get dependencies
 flutter pub get
+
+# Build the web app
+flutter build web --release
 
